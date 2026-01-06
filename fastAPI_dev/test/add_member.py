@@ -1,6 +1,6 @@
 import requests
 
-BASE = "http://111.111.111.164:8000"
+BASE = "http://111.111.111.216:8000"
 r = requests.post(f"{BASE}/auth/register", json={
     "email": "pjmsm0319@naver.com",
     "password": "1234",
