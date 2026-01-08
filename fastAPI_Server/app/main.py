@@ -231,6 +231,16 @@ async def log_unhandled_errors(request: Request, call_next):
     try:
         response = await call_next(request)
         return response
+    except HTTPException as e:
+        # 의도된 HTTP 예외도 로그에 남긴다.
+        await log_error(
+            path=str(request.url),
+            method=request.method,
+            status_code=e.status_code,
+            message=str(e.detail),
+            stacktrace=None,
+        )
+        raise
     except Exception as e:
         await log_error(
             path=str(request.url),

@@ -1,5 +1,5 @@
 import uuid
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,7 +10,7 @@ from .security import decode_access_token
 bearer_scheme = HTTPBearer(auto_error=True)
 
 async def get_current_member(
-    creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    creds: HTTPAuthorizationCredentials = Security(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> Member:
     token = creds.credentials

@@ -18,25 +18,40 @@ def _select_detection(boxes, target, alpha: float):
     if not boxes:
         return None
     tx, ty = target
-    candidates = []
+    contained = []
     for b in boxes:
         conf = b.get("confidence")
         if conf is None:
             continue
         xyxy = b.get("xyxy") or [0, 0, 0, 0]
         x1, y1, x2, y2 = xyxy
-        if not (x1 <= tx <= x2 and y1 <= ty <= y2):
-            continue
         cx = (x1 + x2) / 2
         cy = (y1 + y2) / 2
         dist = ((cx - tx) ** 2 + (cy - ty) ** 2) ** 0.5
         score = conf - alpha * dist
         b = dict(b)
         b["score_weighted"] = score
-        candidates.append(b)
-    if not candidates:
-        return None
-    return max(candidates, key=lambda b: b["score_weighted"])
+        if x1 <= tx <= x2 and y1 <= ty <= y2:
+            contained.append(b)
+    if contained:
+        return max(contained, key=lambda b: b["score_weighted"])
+
+    # 포함된 박스가 없으면 모든 박스에 대해 거리-가중 신뢰도로 fallback 선택
+    fallback = []
+    for b in boxes:
+        conf = b.get("confidence")
+        if conf is None:
+            continue
+        xyxy = b.get("xyxy") or [0, 0, 0, 0]
+        x1, y1, x2, y2 = xyxy
+        cx = (x1 + x2) / 2
+        cy = (y1 + y2) / 2
+        dist = ((cx - tx) ** 2 + (cy - ty) ** 2) ** 0.5
+        score = conf - alpha * dist
+        b = dict(b)
+        b["score_weighted"] = score
+        fallback.append(b)
+    return max(fallback, key=lambda b: b["score_weighted"]) if fallback else None
 
 
 def run_inference_on_file(image_path: str, job_id: str, photo_id: str, rdid: str, img_x: float, img_y: float, alpha: float):

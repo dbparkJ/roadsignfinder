@@ -90,8 +90,8 @@ def upload(upload_url, content_type, file_path):
 
 
 def main():
-    #ensure_file(FILE_PATH)
-    ensure_user()
+    ensure_file(FILE_PATH)
+    #ensure_user()
     token = login()
 
     filename = os.path.basename(FILE_PATH)
