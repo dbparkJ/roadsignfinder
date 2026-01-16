@@ -1,0 +1,265 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00542.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 180
+    },
+    "dt_polys": [
+        [
+            [
+                431,
+                211
+            ],
+            [
+                516,
+                225
+            ],
+            [
+                512,
+                249
+            ],
+            [
+                427,
+                235
+            ]
+        ],
+        [
+            [
+                27,
+                335
+            ],
+            [
+                51,
+                333
+            ],
+            [
+                58,
+                418
+            ],
+            [
+                34,
+                420
+            ]
+        ],
+        [
+            [
+                0,
+                775
+            ],
+            [
+                88,
+                775
+            ],
+            [
+                88,
+                841
+            ],
+            [
+                0,
+                841
+            ]
+        ],
+        [
+            [
+                44,
+                877
+            ],
+            [
+                80,
+                878
+            ],
+            [
+                68,
+                1226
+            ],
+            [
+                32,
+                1225
+            ]
+        ],
+        [
+            [
+                0,
+                911
+            ],
+            [
+                36,
+                911
+            ],
+            [
+                31,
+                1237
+            ],
+            [
+                0,
+                1237
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "",
+        "CROPO",
+        "",
+        "|o 스으H뉴>",
+        "UCOM EL>"
+    ],
+    "rec_scores": [
+        0.0,
+        0.539705216884613,
+        0.0,
+        0.5154470801353455,
+        0.4783180058002472
+    ],
+    "rec_polys": [
+        [
+            [
+                431,
+                211
+            ],
+            [
+                516,
+                225
+            ],
+            [
+                512,
+                249
+            ],
+            [
+                427,
+                235
+            ]
+        ],
+        [
+            [
+                27,
+                335
+            ],
+            [
+                51,
+                333
+            ],
+            [
+                58,
+                418
+            ],
+            [
+                34,
+                420
+            ]
+        ],
+        [
+            [
+                0,
+                775
+            ],
+            [
+                88,
+                775
+            ],
+            [
+                88,
+                841
+            ],
+            [
+                0,
+                841
+            ]
+        ],
+        [
+            [
+                44,
+                877
+            ],
+            [
+                80,
+                878
+            ],
+            [
+                68,
+                1226
+            ],
+            [
+                32,
+                1225
+            ]
+        ],
+        [
+            [
+                0,
+                911
+            ],
+            [
+                36,
+                911
+            ],
+            [
+                31,
+                1237
+            ],
+            [
+                0,
+                1237
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            427,
+            211,
+            516,
+            249
+        ],
+        [
+            27,
+            333,
+            58,
+            420
+        ],
+        [
+            0,
+            775,
+            88,
+            841
+        ],
+        [
+            32,
+            877,
+            80,
+            1226
+        ],
+        [
+            0,
+            911,
+            36,
+            1237
+        ]
+    ]
+}

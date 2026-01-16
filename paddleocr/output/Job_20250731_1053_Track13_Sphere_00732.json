@@ -1,0 +1,220 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00732.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                214,
+                0
+            ],
+            [
+                396,
+                9
+            ],
+            [
+                389,
+                99
+            ],
+            [
+                207,
+                84
+            ]
+        ],
+        [
+            [
+                697,
+                829
+            ],
+            [
+                742,
+                838
+            ],
+            [
+                740,
+                852
+            ],
+            [
+                694,
+                843
+            ]
+        ],
+        [
+            [
+                682,
+                839
+            ],
+            [
+                745,
+                850
+            ],
+            [
+                742,
+                872
+            ],
+            [
+                679,
+                861
+            ]
+        ],
+        [
+            [
+                276,
+                1386
+            ],
+            [
+                361,
+                1384
+            ],
+            [
+                362,
+                1402
+            ],
+            [
+                276,
+                1404
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "감속운행",
+        "A",
+        "DIAMANT",
+        ""
+    ],
+    "rec_scores": [
+        0.9996217489242554,
+        0.21390528976917267,
+        0.9903432726860046,
+        0.0
+    ],
+    "rec_polys": [
+        [
+            [
+                214,
+                0
+            ],
+            [
+                396,
+                9
+            ],
+            [
+                389,
+                99
+            ],
+            [
+                207,
+                84
+            ]
+        ],
+        [
+            [
+                697,
+                829
+            ],
+            [
+                742,
+                838
+            ],
+            [
+                740,
+                852
+            ],
+            [
+                694,
+                843
+            ]
+        ],
+        [
+            [
+                682,
+                839
+            ],
+            [
+                745,
+                850
+            ],
+            [
+                742,
+                872
+            ],
+            [
+                679,
+                861
+            ]
+        ],
+        [
+            [
+                276,
+                1386
+            ],
+            [
+                361,
+                1384
+            ],
+            [
+                362,
+                1402
+            ],
+            [
+                276,
+                1404
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            207,
+            0,
+            396,
+            99
+        ],
+        [
+            694,
+            829,
+            742,
+            852
+        ],
+        [
+            679,
+            839,
+            745,
+            872
+        ],
+        [
+            276,
+            1384,
+            362,
+            1404
+        ]
+    ]
+}

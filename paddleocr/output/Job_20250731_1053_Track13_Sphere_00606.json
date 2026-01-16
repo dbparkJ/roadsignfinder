@@ -1,0 +1,220 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00606.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 180
+    },
+    "dt_polys": [
+        [
+            [
+                76,
+                0
+            ],
+            [
+                669,
+                0
+            ],
+            [
+                682,
+                362
+            ],
+            [
+                90,
+                382
+            ]
+        ],
+        [
+            [
+                203,
+                908
+            ],
+            [
+                245,
+                908
+            ],
+            [
+                245,
+                958
+            ],
+            [
+                203,
+                958
+            ]
+        ],
+        [
+            [
+                181,
+                971
+            ],
+            [
+                276,
+                978
+            ],
+            [
+                273,
+                1022
+            ],
+            [
+                178,
+                1015
+            ]
+        ],
+        [
+            [
+                395,
+                1370
+            ],
+            [
+                499,
+                1283
+            ],
+            [
+                594,
+                1401
+            ],
+            [
+                490,
+                1488
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "",
+        "87",
+        "",
+        ""
+    ],
+    "rec_scores": [
+        0.0,
+        0.3372368812561035,
+        0.0,
+        0.0
+    ],
+    "rec_polys": [
+        [
+            [
+                76,
+                0
+            ],
+            [
+                669,
+                0
+            ],
+            [
+                682,
+                362
+            ],
+            [
+                90,
+                382
+            ]
+        ],
+        [
+            [
+                203,
+                908
+            ],
+            [
+                245,
+                908
+            ],
+            [
+                245,
+                958
+            ],
+            [
+                203,
+                958
+            ]
+        ],
+        [
+            [
+                181,
+                971
+            ],
+            [
+                276,
+                978
+            ],
+            [
+                273,
+                1022
+            ],
+            [
+                178,
+                1015
+            ]
+        ],
+        [
+            [
+                395,
+                1370
+            ],
+            [
+                499,
+                1283
+            ],
+            [
+                594,
+                1401
+            ],
+            [
+                490,
+                1488
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            76,
+            0,
+            682,
+            382
+        ],
+        [
+            203,
+            908,
+            245,
+            958
+        ],
+        [
+            178,
+            971,
+            276,
+            1022
+        ],
+        [
+            395,
+            1283,
+            594,
+            1488
+        ]
+    ]
+}

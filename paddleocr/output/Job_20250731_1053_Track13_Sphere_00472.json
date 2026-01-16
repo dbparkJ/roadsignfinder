@@ -1,0 +1,175 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00472.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                546,
+                465
+            ],
+            [
+                661,
+                476
+            ],
+            [
+                657,
+                515
+            ],
+            [
+                542,
+                504
+            ]
+        ],
+        [
+            [
+                712,
+                476
+            ],
+            [
+                753,
+                476
+            ],
+            [
+                753,
+                529
+            ],
+            [
+                712,
+                529
+            ]
+        ],
+        [
+            [
+                0,
+                1210
+            ],
+            [
+                545,
+                1102
+            ],
+            [
+                616,
+                1487
+            ],
+            [
+                51,
+                1595
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "신호·과속단속장비",
+        "70",
+        "U"
+    ],
+    "rec_scores": [
+        0.9567394256591797,
+        0.9997344613075256,
+        0.40936368703842163
+    ],
+    "rec_polys": [
+        [
+            [
+                546,
+                465
+            ],
+            [
+                661,
+                476
+            ],
+            [
+                657,
+                515
+            ],
+            [
+                542,
+                504
+            ]
+        ],
+        [
+            [
+                712,
+                476
+            ],
+            [
+                753,
+                476
+            ],
+            [
+                753,
+                529
+            ],
+            [
+                712,
+                529
+            ]
+        ],
+        [
+            [
+                0,
+                1210
+            ],
+            [
+                545,
+                1102
+            ],
+            [
+                616,
+                1487
+            ],
+            [
+                51,
+                1595
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            542,
+            465,
+            661,
+            515
+        ],
+        [
+            712,
+            476,
+            753,
+            529
+        ],
+        [
+            0,
+            1102,
+            616,
+            1595
+        ]
+    ]
+}

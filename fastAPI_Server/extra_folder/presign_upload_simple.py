@@ -18,9 +18,10 @@ API_BASE = os.getenv("API_BASE", "http://111.111.111.216:8000")
 EMAIL = os.getenv("TEST_EMAIL", "pjmsm0319@naver.com")
 PASSWORD = os.getenv("TEST_PASSWORD", "1234")
 # 필요 시 여기 값을 직접 수정하세요.
-FILE_PATH = os.getenv("FILE_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/test_file/yaw_0/TRACK01/Camera01/Job_20250731_1053_Track12-2-2-2_Sphere_00109.jpg")
-IMG_X = float(os.getenv("PRESIGN_IMG_X", 0.0))           # 이미지 내 좌표 x
-IMG_Y = float(os.getenv("PRESIGN_IMG_Y", 0.0))           # 이미지 내 좌표 y
+FILE_PATH = os.getenv("FILE_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/test_file/yaw_0/TRACK01/Camera01/Job_20250731_1053_Track12-2-2-2_Sphere_00109.jpg") # 762, 679
+#FILE_PATH = os.getenv("FILE_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/test_file/test_sam/Job_20250731_1053_Track13_Sphere_00354.jpg") # 608, 963
+IMG_X = float(os.getenv("PRESIGN_IMG_X", 762))           # 이미지 내 좌표 x
+IMG_Y = float(os.getenv("PRESIGN_IMG_Y", 679))           # 이미지 내 좌표 y
 # UTM 52N 좌표 (geo_y=Northing, geo_x=Easting)
 GEO_X = float(os.getenv("PRESIGN_UTM_E", 322000))
 GEO_Y = float(os.getenv("PRESIGN_UTM_N", 4155000))

@@ -1,0 +1,175 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00215.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                467,
+                537
+            ],
+            [
+                504,
+                537
+            ],
+            [
+                504,
+                565
+            ],
+            [
+                467,
+                565
+            ]
+        ],
+        [
+            [
+                62,
+                880
+            ],
+            [
+                200,
+                856
+            ],
+            [
+                206,
+                889
+            ],
+            [
+                68,
+                913
+            ]
+        ],
+        [
+            [
+                379,
+                1304
+            ],
+            [
+                466,
+                1289
+            ],
+            [
+                469,
+                1307
+            ],
+            [
+                382,
+                1322
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "비보호",
+        "26.000",
+        ""
+    ],
+    "rec_scores": [
+        0.8857211470603943,
+        0.9484930038452148,
+        0.0
+    ],
+    "rec_polys": [
+        [
+            [
+                467,
+                537
+            ],
+            [
+                504,
+                537
+            ],
+            [
+                504,
+                565
+            ],
+            [
+                467,
+                565
+            ]
+        ],
+        [
+            [
+                62,
+                880
+            ],
+            [
+                200,
+                856
+            ],
+            [
+                206,
+                889
+            ],
+            [
+                68,
+                913
+            ]
+        ],
+        [
+            [
+                379,
+                1304
+            ],
+            [
+                466,
+                1289
+            ],
+            [
+                469,
+                1307
+            ],
+            [
+                382,
+                1322
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            467,
+            537,
+            504,
+            565
+        ],
+        [
+            62,
+            856,
+            206,
+            913
+        ],
+        [
+            379,
+            1289,
+            469,
+            1322
+        ]
+    ]
+}

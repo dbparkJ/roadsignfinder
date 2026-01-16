@@ -1,0 +1,220 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00471.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 270
+    },
+    "dt_polys": [
+        [
+            [
+                1263,
+                650
+            ],
+            [
+                1291,
+                647
+            ],
+            [
+                1301,
+                742
+            ],
+            [
+                1273,
+                744
+            ]
+        ],
+        [
+            [
+                1281,
+                646
+            ],
+            [
+                1329,
+                638
+            ],
+            [
+                1347,
+                743
+            ],
+            [
+                1299,
+                752
+            ]
+        ],
+        [
+            [
+                356,
+                675
+            ],
+            [
+                409,
+                663
+            ],
+            [
+                427,
+                739
+            ],
+            [
+                374,
+                751
+            ]
+        ],
+        [
+            [
+                928,
+                803
+            ],
+            [
+                956,
+                798
+            ],
+            [
+                970,
+                872
+            ],
+            [
+                942,
+                877
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "Mleluat raye oue",
+        "불루야기도원",
+        "[",
+        "황단보"
+    ],
+    "rec_scores": [
+        0.4582662284374237,
+        0.8263648152351379,
+        0.9097394943237305,
+        0.8286264538764954
+    ],
+    "rec_polys": [
+        [
+            [
+                1263,
+                650
+            ],
+            [
+                1291,
+                647
+            ],
+            [
+                1301,
+                742
+            ],
+            [
+                1273,
+                744
+            ]
+        ],
+        [
+            [
+                1281,
+                646
+            ],
+            [
+                1329,
+                638
+            ],
+            [
+                1347,
+                743
+            ],
+            [
+                1299,
+                752
+            ]
+        ],
+        [
+            [
+                356,
+                675
+            ],
+            [
+                409,
+                663
+            ],
+            [
+                427,
+                739
+            ],
+            [
+                374,
+                751
+            ]
+        ],
+        [
+            [
+                928,
+                803
+            ],
+            [
+                956,
+                798
+            ],
+            [
+                970,
+                872
+            ],
+            [
+                942,
+                877
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            1263,
+            647,
+            1301,
+            744
+        ],
+        [
+            1281,
+            638,
+            1347,
+            752
+        ],
+        [
+            356,
+            663,
+            427,
+            751
+        ],
+        [
+            928,
+            798,
+            970,
+            877
+        ]
+    ]
+}

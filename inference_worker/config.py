@@ -9,6 +9,8 @@ class Settings(BaseModel):
     MINIO_SECURE: bool = os.getenv("MINIO_SECURE", "false").lower() == "true"
     MINIO_BUCKET: str = os.getenv("MINIO_BUCKET", "photos")  # 원본 이미지 버킷
     INFERENCE_BUCKET: str = os.getenv("INFERENCE_BUCKET", "inference")  # 추론 결과 버킷
+    INFERENCE_SAVE_IMAGES: bool = os.getenv("INFERENCE_SAVE_IMAGES", "true").lower() == "true"
+    INFERENCE_LOG_TIMING: bool = os.getenv("INFERENCE_LOG_TIMING", "false").lower() == "true"
 
     CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0")
 
@@ -17,7 +19,7 @@ class Settings(BaseModel):
 
     TMP_DIR: str = os.getenv("INFERENCE_TMP_DIR", "/tmp")
     MODEL_NAME: str = os.getenv("MODEL_NAME", "yolo-seg")
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/yolo_worker/model/best.pt")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/yolo_worker_dev/model/version1.2.pt")
     SELECTION_ALPHA: float = float(os.getenv("SELECTION_ALPHA", "0.001"))  # conf - alpha*dist 가중치
 
 

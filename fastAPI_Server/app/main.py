@@ -1,6 +1,7 @@
 # app/main.py
 import uuid
 import asyncio
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, BackgroundTasks, Request, Form
@@ -14,17 +15,29 @@ import traceback
 from celery import Celery
 
 from .db import get_db, engine, Base, SessionLocal
-from .models import Member, Photo, UploadSession, ErrorLog, InferenceResult
+from .models import (
+    Member,
+    Photo,
+    UploadSession,
+    ErrorLog,
+    InferenceResult,
+    PoleTypeDebugLog,
+    YoloResultCache,
+    PoleTypeResultCache,
+)
 from .schemas import (
     RegisterIn,
     LoginIn,
     TokenOut,
     MemberOut,
     PhotoOut,
+    UploadResultOut,
     PhotoPresignIn,
     PhotoPresignOut,
     InferenceResultOut,
     InferenceCallbackIn,
+    PoleTypeResultOut,
+    PoleTypeCallbackIn,
 )
 from .security import hash_password, verify_password, create_access_token
 from .deps import get_current_member
@@ -45,10 +58,93 @@ celery_app.conf.update(
     task_default_queue="inference",
 )
 
+sam3_celery_app = Celery(
+    "sam3_worker",
+    broker=settings.SAM3_CELERY_BROKER_URL,
+)
+sam3_celery_app.conf.update(
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    task_default_queue="sam3",
+)
+
 def _normalize_dt(dt):
     if not dt:
         return datetime.now(timezone.utc)
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+def _inference_prefix(member_id: uuid.UUID) -> str:
+    return str(member_id).lower()
+
+def _point_in_poly(x: float, y: float, poly: list[list[float]]) -> bool:
+    inside = False
+    n = len(poly)
+    if n < 3:
+        return False
+    j = n - 1
+    for i in range(n):
+        xi, yi = poly[i]
+        xj, yj = poly[j]
+        if _point_on_segment(x, y, xi, yi, xj, yj, tol=1.0):
+            return True
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+def _point_on_segment(x: float, y: float, x1: float, y1: float, x2: float, y2: float, tol: float) -> bool:
+    dx = x2 - x1
+    dy = y2 - y1
+    denom = dx * dx + dy * dy
+    if denom == 0:
+        return (x - x1) * (x - x1) + (y - y1) * (y - y1) <= tol * tol
+    t = ((x - x1) * dx + (y - y1) * dy) / denom
+    t = max(0.0, min(1.0, t))
+    cx = x1 + t * dx
+    cy = y1 + t * dy
+    return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= tol * tol
+
+def _point_in_masks(x: float, y: float, masks: list[list[list[float]]]) -> bool:
+    for poly in masks:
+        if _point_in_poly(x, y, poly):
+            return True
+    return False
+
+def _point_match_from_job(job: InferenceResult, photo: Photo | None) -> bool | None:
+    if not job or not photo:
+        return None
+    if not isinstance(job.result_json, dict):
+        return None
+    yolo_payload = job.result_json.get("yolo")
+    if not isinstance(yolo_payload, dict):
+        # 레거시: yolo가 최상위에 저장된 경우
+        yolo_payload = job.result_json
+    masks = yolo_payload.get("masks") or []
+    if masks:
+        return _point_in_masks(photo.img_x, photo.img_y, masks)
+    boxes = yolo_payload.get("boxes") or []
+    if boxes:
+        return any(
+            b.get("xyxy")
+            and b["xyxy"][0] <= photo.img_x <= b["xyxy"][2]
+            and b["xyxy"][1] <= photo.img_y <= b["xyxy"][3]
+            for b in boxes
+        )
+    return None
+
+def _compact_inference_result_json(result_json: dict | None) -> dict | None:
+    if not isinstance(result_json, dict):
+        return result_json
+    if "yolo" in result_json:
+        yolo_payload = result_json.get("yolo")
+        if isinstance(yolo_payload, dict):
+            merged = dict(yolo_payload)
+            pole_type = result_json.get("pole_type")
+            if pole_type is not None:
+                merged["pole_type"] = pole_type
+            return merged
+    return result_json
 
 async def log_error(path: str | None, method: str | None, status_code: int | None, message: str | None, stacktrace: str | None = None):
     async with SessionLocal() as session:
@@ -67,7 +163,32 @@ async def log_error(path: str | None, method: str | None, status_code: int | Non
             await session.rollback()
             print(f"[WARN] error log 저장 실패: {e}")
 
+async def _update_upload_session_status(
+    upload_session: UploadSession,
+    db: AsyncSession,
+) -> None:
+    if not upload_session:
+        return
+    infer_job = await db.get(InferenceResult, upload_session.job_id) if upload_session.job_id else None
+    infer_status = infer_job.status if infer_job else None
+    pole_type_status = None
+    infer_no_detections = None
+    if infer_job and isinstance(infer_job.result_json, dict):
+        pole_type_status = (infer_job.result_json.get("pole_type") or {}).get("status")
+        infer_no_detections = infer_job.result_json.get("no_detections")
+
+    if infer_status == "failed" or pole_type_status == "failed":
+        upload_session.status = "failed"
+    elif infer_status == "done" and pole_type_status == "done":
+        upload_session.status = "done"
+    elif infer_status == "done" and pole_type_status is None and infer_no_detections is True:
+        upload_session.status = "done"
+    elif infer_status in ("processing", "done") or pole_type_status in ("processing", "done"):
+        upload_session.status = "processing"
+
 async def schedule_inference(photo: Photo, db: AsyncSession) -> InferenceResult:
+    result_bucket = settings.INFERENCE_BUCKET
+    result_prefix = _inference_prefix(photo.member_id)
     job = InferenceResult(photo_id=photo.id, status="queued", rdid=photo.rdid)
     db.add(job)
     await db.commit()
@@ -81,6 +202,8 @@ async def schedule_inference(photo: Photo, db: AsyncSession) -> InferenceResult:
         "rdid": photo.rdid,
         "img_x": photo.img_x,
         "img_y": photo.img_y,
+        "result_bucket": result_bucket,
+        "result_prefix": result_prefix,
     }
     try:
         await run_in_threadpool(
@@ -105,6 +228,60 @@ async def schedule_inference(photo: Photo, db: AsyncSession) -> InferenceResult:
 
     return job
 
+async def schedule_pole_type(photo: Photo, inference_job_id: uuid.UUID, db: AsyncSession) -> None:
+    result_bucket = settings.INFERENCE_BUCKET
+    result_prefix = _inference_prefix(photo.member_id)
+    payload = {
+        "job_id": str(inference_job_id),
+        "photo_id": str(photo.id),
+        "bucket": MINIO_BUCKET,
+        "object_key": photo.object_key,
+        "rdid": photo.rdid,
+        "result_bucket": result_bucket,
+        "result_prefix": result_prefix,
+    }
+    try:
+        job = await db.get(InferenceResult, inference_job_id)
+        if job:
+            merged = dict(job.result_json or {})
+            merged["pole_type"] = {
+                "status": "queued",
+                "result_object_key": None,
+                "result_json": None,
+                "error_message": None,
+                "size_bytes": None,
+            }
+            job.result_json = merged
+            await db.commit()
+        await run_in_threadpool(
+            sam3_celery_app.send_task,
+            "sam3_worker.tasks.run_sam3",
+            args=[],
+            kwargs=payload,
+            queue="sam3",
+        )
+    except Exception as e:
+        job = await db.get(InferenceResult, inference_job_id)
+        if job:
+            merged = dict(job.result_json or {})
+            merged["pole_type"] = {
+                "status": "failed",
+                "result_object_key": None,
+                "result_json": None,
+                "error_message": f"enqueue failed: {e}",
+                "size_bytes": None,
+            }
+            job.result_json = merged
+            await db.commit()
+        await log_error(
+            path="enqueue_pole_type",
+            method=None,
+            status_code=None,
+            message=str(e),
+            stacktrace=traceback.format_exc(),
+        )
+        raise HTTPException(status_code=502, detail="pole_type 작업 생성에 실패했습니다.") from e
+
 async def _register_uploaded_photo(session_id, member_id, object_key, original_filename, content_type):
     """
     presigned 업로드 완료 후 MinIO에 객체가 생기면 DB에 기록한다.
@@ -126,11 +303,29 @@ async def _register_uploaded_photo(session_id, member_id, object_key, original_f
             try:
                 stat = await run_in_threadpool(minio_client.stat_object, MINIO_BUCKET, object_key)
                 photo = None
-                existing = await session.execute(select(Photo).where(Photo.object_key == object_key))
+                us_for_xy = await session.execute(select(UploadSession).where(UploadSession.id == session_id))
+                xy = us_for_xy.scalar_one_or_none()
+
+                existing = await session.execute(
+                    select(Photo).where(
+                        Photo.member_id == member_id,
+                        Photo.geo_x == (xy.geo_x if xy else 0.0),
+                        Photo.geo_y == (xy.geo_y if xy else 0.0),
+                        Photo.original_filename == original_filename,
+                        Photo.size_bytes == stat.size,
+                    )
+                )
                 photo = existing.scalar_one_or_none()
+                if photo:
+                    if xy:
+                        photo.img_x = xy.img_x
+                        photo.img_y = xy.img_y
+                        await session.commit()
+                    await run_in_threadpool(minio_client.remove_object, MINIO_BUCKET, object_key)
+                else:
+                    existing = await session.execute(select(Photo).where(Photo.object_key == object_key))
+                    photo = existing.scalar_one_or_none()
                 if not photo:
-                    us_for_xy = await session.execute(select(UploadSession).where(UploadSession.id == session_id))
-                    xy = us_for_xy.scalar_one_or_none()
                     photo = Photo(
                         member_id=member_id,
                         object_key=object_key,
@@ -150,22 +345,31 @@ async def _register_uploaded_photo(session_id, member_id, object_key, original_f
 
                 us = await session.execute(select(UploadSession).where(UploadSession.id == session_id))
                 upload_session = us.scalar_one_or_none()
+                existing_job = None
                 if upload_session:
                     upload_session.status = "processing"
                     upload_session.photo_id = photo.id
                     upload_session.uploaded_at = _normalize_dt(stat.last_modified)
+                    if upload_session.status == "processing" and photo.id:
+                        q = await session.execute(
+                            select(InferenceResult).where(InferenceResult.photo_id == photo.id).order_by(InferenceResult.created_at.desc())
+                        )
+                        existing_job = q.scalar_one_or_none()
+                        if existing_job:
+                            upload_session.job_id = existing_job.id
 
                 await session.commit()
                 try:
-                    job = await schedule_inference(photo, session)
-                    if upload_session:
-                        upload_session.job_id = job.id
-                        upload_session.status = "queued"
-                        await session.commit()
+                    if not existing_job:
+                        job = await schedule_inference(photo, session)
+                        if upload_session:
+                            upload_session.job_id = job.id
+                            upload_session.status = "queued"
+                            await session.commit()
                 except Exception:
                     await session.rollback()
                     await log_error(
-                        path="enqueue_inference",
+                        path="enqueue_inference_or_pole_type",
                         method=None,
                         status_code=None,
                         message="failed to enqueue inference",
@@ -388,7 +592,7 @@ async def presign_photo_upload(
         expires_in=expires_in,
     )
 
-@app.post("/photos", response_model=PhotoOut, status_code=201)
+@app.post("/photos", response_model=UploadResultOut, status_code=201)
 async def upload_photo(
     file: UploadFile = File(...),
     img_x: float = Form(...),
@@ -425,6 +629,93 @@ async def upload_photo(
         raise HTTPException(status_code=502, detail=f"파일 업로드 실패: {e.code}") from e
     except Exception as e:
         raise HTTPException(status_code=502, detail="파일 업로드 중 오류가 발생했습니다.") from e
+
+    try:
+        file_size = os.fstat(file.file.fileno()).st_size
+    except Exception:
+        file_size = None
+
+    dup_filters = [
+        Photo.member_id == current.id,
+        Photo.geo_x == geo_x,
+        Photo.geo_y == geo_y,
+        Photo.original_filename == file.filename,
+    ]
+    if file_size is not None:
+        dup_filters.append(Photo.size_bytes == file_size)
+
+    dup = await db.execute(select(Photo).where(*dup_filters))
+    existing_photo = dup.scalar_one_or_none()
+    if existing_photo:
+        existing_photo.img_x = img_x
+        existing_photo.img_y = img_y
+        await db.commit()
+        try:
+            await run_in_threadpool(minio_client.remove_object, MINIO_BUCKET, object_key)
+        except Exception:
+            pass
+        yolo_q = await db.execute(
+            select(YoloResultCache).where(YoloResultCache.photo_id == existing_photo.id).order_by(YoloResultCache.created_at.desc())
+        )
+        yolo_cache = yolo_q.scalar_one_or_none()
+
+        pole_q = await db.execute(
+            select(PoleTypeResultCache).where(PoleTypeResultCache.photo_id == existing_photo.id).order_by(PoleTypeResultCache.created_at.desc())
+        )
+        pole_cache = pole_q.scalar_one_or_none()
+
+        inference_payload = None
+        if yolo_cache and isinstance(yolo_cache.result_json, dict):
+            masks = yolo_cache.result_json.get("masks") or []
+            if masks:
+                point_match = _point_in_masks(img_x, img_y, masks)
+            else:
+                boxes = yolo_cache.result_json.get("boxes") or []
+                point_match = any(
+                    b.get("xyxy") and b["xyxy"][0] <= img_x <= b["xyxy"][2] and b["xyxy"][1] <= img_y <= b["xyxy"][3]
+                    for b in boxes
+                )
+            if point_match:
+                merged = {"yolo": yolo_cache.result_json}
+                if pole_cache:
+                    merged["pole_type"] = {
+                        "status": pole_cache.status,
+                        "result_object_key": pole_cache.result_object_key,
+                        "result_json": pole_cache.result_json,
+                        "error_message": pole_cache.error_message,
+                        "size_bytes": None,
+                    }
+                inference_payload = InferenceResultOut(
+                    id=str(existing_photo.id),
+                    photo_id=str(existing_photo.id),
+                    status="done" if pole_cache else "processing",
+                    result_object_key=yolo_cache.result_object_key,
+                    result_json=_compact_inference_result_json(merged),
+                    error_message=None,
+                    created_at=existing_photo.created_at,
+                    updated_at=existing_photo.created_at,
+                    started_at=None,
+                    finished_at=None,
+                    size_bytes=yolo_cache.result_json.get("size_bytes") if isinstance(yolo_cache.result_json, dict) else None,
+                )
+        return UploadResultOut(
+            duplicate=True,
+            photo=PhotoOut(
+                id=str(existing_photo.id),
+                object_key=existing_photo.object_key,
+                bucket=MINIO_BUCKET,
+                original_filename=existing_photo.original_filename,
+                content_type=existing_photo.content_type,
+                size_bytes=existing_photo.size_bytes,
+                created_at=existing_photo.created_at,
+                img_x=existing_photo.img_x,
+                img_y=existing_photo.img_y,
+                geo_x=existing_photo.geo_x,
+                geo_y=existing_photo.geo_y,
+                rdid=existing_photo.rdid,
+            ),
+            inference=inference_payload,
+        )
 
     photo = Photo(
         member_id=current.id,
@@ -466,19 +757,23 @@ async def upload_photo(
     except Exception:
         pass
 
-    return PhotoOut(
-        id=str(photo.id),
-        object_key=photo.object_key,
-        bucket=MINIO_BUCKET,
-        original_filename=photo.original_filename,
-        content_type=photo.content_type,
-        size_bytes=photo.size_bytes,
-        created_at=photo.created_at,
-        img_x=photo.img_x,
-        img_y=photo.img_y,
-        geo_x=photo.geo_x,
-        geo_y=photo.geo_y,
-        rdid=photo.rdid,
+    return UploadResultOut(
+        duplicate=False,
+        photo=PhotoOut(
+            id=str(photo.id),
+            object_key=photo.object_key,
+            bucket=MINIO_BUCKET,
+            original_filename=photo.original_filename,
+            content_type=photo.content_type,
+            size_bytes=photo.size_bytes,
+            created_at=photo.created_at,
+            img_x=photo.img_x,
+            img_y=photo.img_y,
+            geo_x=photo.geo_x,
+            geo_y=photo.geo_y,
+            rdid=photo.rdid,
+        ),
+        inference=None,
     )
 
 @app.post("/inference/callback", status_code=204)
@@ -489,6 +784,9 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
 
     job_id = uuid.UUID(data.job_id)
     now = datetime.now(timezone.utc)
+    enqueue_pole_type = False
+    enqueue_job_id = None
+    enqueue_photo_id = None
     try:
         async with SessionLocal() as db:
             async with db.begin():
@@ -496,16 +794,71 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                 if not job:
                     raise HTTPException(status_code=404, detail="job not found")
 
-                job.status = data.status
+                no_detections = None
+                if isinstance(data.result_json, dict):
+                    no_detections = data.result_json.get("no_detections")
+
                 job.result_object_key = data.result_object_key
-                job.result_json = data.result_json
+                point_match = None
+                if data.status == "done" and isinstance(data.result_json, dict):
+                    if no_detections is False:
+                        photo = await db.get(Photo, job.photo_id)
+                        if photo:
+                            masks = data.result_json.get("masks") or []
+                            if masks:
+                                point_match = _point_in_masks(photo.img_x, photo.img_y, masks)
+                            else:
+                                boxes = data.result_json.get("boxes") or []
+                                point_match = any(
+                                    b.get("xyxy")
+                                    and b["xyxy"][0] <= photo.img_x <= b["xyxy"][2]
+                                    and b["xyxy"][1] <= photo.img_y <= b["xyxy"][3]
+                                    for b in boxes
+                                )
+                        merged = dict(job.result_json or {})
+                        merged["yolo"] = data.result_json
+                        job.result_json = merged
+                    else:
+                        job.result_json = data.result_json
+                else:
+                    job.result_json = data.result_json
+
+                if data.status == "done" and no_detections is False:
+                    job.status = "processing"
+                else:
+                    job.status = data.status
                 job.error_message = data.error_message
                 job.size_bytes = data.size_bytes
                 if data.status == "processing" and not job.started_at:
                     job.started_at = now
-                if data.status in ("done", "failed"):
+                if data.status == "failed" or (data.status == "done" and no_detections is True):
                     job.finished_at = now
                 job.updated_at = now
+                us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
+                upload_session = us.scalar_one_or_none()
+                if upload_session:
+                    await _update_upload_session_status(upload_session, db)
+
+                if data.status == "done" and isinstance(data.result_json, dict):
+                    db.add(
+                        YoloResultCache(
+                            photo_id=job.photo_id,
+                            result_object_key=data.result_object_key,
+                            result_json=data.result_json,
+                        )
+                    )
+
+                if data.status == "done" and no_detections is False:
+                    merged = dict(job.result_json or {})
+                    if not isinstance(merged.get("pole_type"), dict):
+                        enqueue_pole_type = True
+                        enqueue_job_id = job.id
+                        enqueue_photo_id = job.photo_id
+        if enqueue_pole_type and enqueue_job_id and enqueue_photo_id:
+            async with SessionLocal() as db2:
+                photo = await db2.get(Photo, enqueue_photo_id)
+                if photo:
+                    await schedule_pole_type(photo, enqueue_job_id, db2)
     except HTTPException:
         raise
     except Exception as e:
@@ -525,13 +878,31 @@ async def get_inference_result(job_id: uuid.UUID, db: AsyncSession = Depends(get
     job = r.scalar_one_or_none()
     if not job:
         raise HTTPException(status_code=404, detail="job not found")
+    photo = await db.get(Photo, job.photo_id)
+    point_match = _point_match_from_job(job, photo)
+    if point_match is False:
+        return InferenceResultOut(
+            id=str(job.id),
+            photo_id=str(job.photo_id),
+            status="done",
+            result_object_key=None,
+            result_json=None,
+            error_message="no facility at point",
+            rdid=photo.rdid if photo else job.rdid,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            size_bytes=None,
+        )
     return InferenceResultOut(
         id=str(job.id),
         photo_id=str(job.photo_id),
         status=job.status,
         result_object_key=job.result_object_key,
-        result_json=job.result_json,
+        result_json=_compact_inference_result_json(job.result_json),
         error_message=job.error_message,
+        rdid=job.rdid or (photo.rdid if photo else None),
         created_at=job.created_at,
         updated_at=job.updated_at,
         started_at=job.started_at,
@@ -573,14 +944,32 @@ async def get_inference_result_generic(
     if not job:
         raise HTTPException(status_code=404, detail="inference result not found")
 
+    photo = await db.get(Photo, job.photo_id)
+    point_match = _point_match_from_job(job, photo)
+    if point_match is False:
+        return InferenceResultOut(
+            id=str(job.id),
+            photo_id=str(job.photo_id),
+            status="done",
+            result_object_key=None,
+            result_json=None,
+            error_message="no facility at point",
+            rdid=photo.rdid if photo else job.rdid,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            size_bytes=None,
+        )
+
     return InferenceResultOut(
         id=str(job.id),
         photo_id=str(job.photo_id),
         status=job.status,
         result_object_key=job.result_object_key,
-        result_json=job.result_json,
+        result_json=_compact_inference_result_json(job.result_json),
         error_message=job.error_message,
-        rdid=job.rdid,
+        rdid=job.rdid or (photo.rdid if photo else None),
         created_at=job.created_at,
         updated_at=job.updated_at,
         started_at=job.started_at,
@@ -625,13 +1014,32 @@ async def get_inference_by_session(session_id: uuid.UUID, db: AsyncSession = Dep
             size_bytes=None,
         )
 
+    photo = await db.get(Photo, job.photo_id)
+    point_match = _point_match_from_job(job, photo)
+    if point_match is False:
+        return InferenceResultOut(
+            id=str(job.id),
+            photo_id=str(job.photo_id),
+            status="done",
+            result_object_key=None,
+            result_json=None,
+            error_message="no facility at point",
+            rdid=photo.rdid if photo else job.rdid,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            size_bytes=None,
+        )
+
     return InferenceResultOut(
         id=str(job.id),
         photo_id=str(job.photo_id),
         status=job.status,
         result_object_key=job.result_object_key,
-        result_json=job.result_json,
+        result_json=_compact_inference_result_json(job.result_json),
         error_message=job.error_message,
+        rdid=job.rdid or (photo.rdid if photo else None),
         created_at=job.created_at,
         updated_at=job.updated_at,
         started_at=job.started_at,
@@ -674,3 +1082,228 @@ async def wait_inference_result(job_id: uuid.UUID, timeout_seconds: int = 30, db
                 finished_at=job.finished_at,
             )
         await asyncio.sleep(1)
+
+@app.post("/pole_type/callback", status_code=204)
+async def pole_type_callback(data: PoleTypeCallbackIn, request: Request):
+    token = request.headers.get("x-pole-type-token")
+    if token != settings.POLE_TYPE_CALLBACK_TOKEN:
+        raise HTTPException(status_code=401, detail="invalid pole_type callback token")
+
+    job_id = uuid.UUID(data.job_id)
+    now = datetime.now(timezone.utc)
+    try:
+        async with SessionLocal() as db:
+            async with db.begin():
+                job = await db.get(InferenceResult, job_id, with_for_update=True)
+                if not job:
+                    raise HTTPException(status_code=404, detail="inference job not found for pole_type callback")
+
+                merged = dict(job.result_json or {})
+                pole_type_payload = {
+                    "status": data.status,
+                    "result_object_key": data.result_object_key,
+                    "result_json": data.result_json,
+                    "error_message": data.error_message,
+                    "size_bytes": data.size_bytes,
+                    "updated_at": now.isoformat(),
+                }
+                if data.status == "processing" and not (merged.get("pole_type") or {}).get("started_at"):
+                    pole_type_payload["started_at"] = now.isoformat()
+                if data.status in ("done", "failed"):
+                    pole_type_payload["finished_at"] = now.isoformat()
+                merged["pole_type"] = pole_type_payload
+                yolo_payload = merged.get("yolo")
+                if isinstance(yolo_payload, dict) and data.status in ("done", "failed"):
+                    combined = dict(yolo_payload)
+                    combined["pole_type"] = pole_type_payload
+                    job.result_json = combined
+                else:
+                    job.result_json = merged
+                if data.status in ("done", "failed"):
+                    job.status = data.status
+                    job.finished_at = now
+                job.updated_at = now
+
+                if data.status in ("done", "failed"):
+                    db.add(
+                        PoleTypeResultCache(
+                            photo_id=job.photo_id,
+                            status=data.status,
+                            result_object_key=data.result_object_key,
+                            result_json=data.result_json,
+                            error_message=data.error_message,
+                        )
+                    )
+
+                if settings.POLE_TYPE_DEBUG_LOG:
+                    db.add(
+                        PoleTypeDebugLog(
+                            inference_job_id=job.id,
+                            photo_id=job.photo_id,
+                            status=pole_type_payload.get("status"),
+                            result_object_key=pole_type_payload.get("result_object_key"),
+                            result_json=pole_type_payload.get("result_json"),
+                            error_message=pole_type_payload.get("error_message"),
+                        )
+                    )
+
+                us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
+                upload_session = us.scalar_one_or_none()
+                if upload_session:
+                    await _update_upload_session_status(upload_session, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await log_error(
+            path="pole_type_callback",
+            method=request.method,
+            status_code=500,
+            message=str(e),
+            stacktrace=traceback.format_exc(),
+        )
+        raise HTTPException(status_code=500, detail="pole_type callback handling failed") from e
+    return
+
+@app.get("/pole_type/{job_id}", response_model=PoleTypeResultOut)
+async def get_pole_type_result(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(InferenceResult).where(InferenceResult.id == job_id))
+    job = r.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="inference job not found")
+    pole_type = (job.result_json or {}).get("pole_type") if isinstance(job.result_json, dict) else None
+    if not pole_type:
+        raise HTTPException(status_code=404, detail="pole_type result not found")
+    return PoleTypeResultOut(
+        id=str(job.id),
+        photo_id=str(job.photo_id),
+        status=pole_type.get("status") or "pending",
+        result_object_key=pole_type.get("result_object_key"),
+        result_json=pole_type.get("result_json"),
+        error_message=pole_type.get("error_message"),
+        rdid=job.rdid,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=pole_type.get("started_at"),
+        finished_at=pole_type.get("finished_at"),
+        size_bytes=pole_type.get("size_bytes"),
+    )
+
+@app.get("/pole_type/result", response_model=PoleTypeResultOut)
+async def get_pole_type_result_generic(
+    job_id: uuid.UUID | None = None,
+    session_id: uuid.UUID | None = None,
+    photo_id: uuid.UUID | None = None,
+    rdid: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if not any([job_id, session_id, photo_id, rdid]):
+        raise HTTPException(status_code=400, detail="job_id, session_id, photo_id, rdid 중 하나는 필요합니다.")
+
+    job: InferenceResult | None = None
+
+    if job_id:
+        job = await db.get(InferenceResult, job_id)
+    elif session_id:
+        us = await db.execute(select(UploadSession).where(UploadSession.id == session_id))
+        upload_session = us.scalar_one_or_none()
+        if upload_session and upload_session.job_id:
+            job = await db.get(InferenceResult, upload_session.job_id)
+    elif photo_id:
+        q = await db.execute(
+            select(InferenceResult).where(InferenceResult.photo_id == photo_id).order_by(InferenceResult.created_at.desc())
+        )
+        job = q.scalar_one_or_none()
+    elif rdid:
+        q = await db.execute(
+            select(InferenceResult).where(InferenceResult.rdid == rdid).order_by(InferenceResult.created_at.desc())
+        )
+        job = q.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="inference job not found")
+
+    pole_type = (job.result_json or {}).get("pole_type") if isinstance(job.result_json, dict) else None
+    if not pole_type:
+        raise HTTPException(status_code=404, detail="pole_type result not found")
+
+    return PoleTypeResultOut(
+        id=str(job.id),
+        photo_id=str(job.photo_id),
+        status=pole_type.get("status") or "pending",
+        result_object_key=pole_type.get("result_object_key"),
+        result_json=pole_type.get("result_json"),
+        error_message=pole_type.get("error_message"),
+        rdid=job.rdid,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=pole_type.get("started_at"),
+        finished_at=pole_type.get("finished_at"),
+        size_bytes=pole_type.get("size_bytes"),
+    )
+
+@app.get("/uploads/{session_id}/pole_type", response_model=PoleTypeResultOut)
+async def get_pole_type_by_session(session_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    us = await db.execute(select(UploadSession).where(UploadSession.id == session_id))
+    upload_session = us.scalar_one_or_none()
+    if not upload_session:
+        raise HTTPException(status_code=404, detail="upload session not found")
+    if not upload_session.job_id:
+        return PoleTypeResultOut(
+            id=str(upload_session.id),
+            photo_id=str(upload_session.photo_id) if upload_session.photo_id else "",
+            status=upload_session.status,
+            result_object_key=None,
+            result_json=None,
+            error_message="inference job not created yet",
+            created_at=upload_session.created_at,
+            updated_at=upload_session.updated_at,
+            started_at=None,
+            finished_at=None,
+            size_bytes=None,
+        )
+
+    job = await db.get(InferenceResult, upload_session.job_id)
+    if not job:
+        return PoleTypeResultOut(
+            id=str(upload_session.job_id),
+            photo_id=str(upload_session.photo_id) if upload_session.photo_id else "",
+            status="pending",
+            result_object_key=None,
+            result_json=None,
+            error_message="inference job not found yet",
+            created_at=upload_session.created_at,
+            updated_at=upload_session.updated_at,
+            started_at=None,
+            finished_at=None,
+            size_bytes=None,
+        )
+
+    pole_type = (job.result_json or {}).get("pole_type") if isinstance(job.result_json, dict) else None
+    if not pole_type:
+        return PoleTypeResultOut(
+            id=str(job.id),
+            photo_id=str(job.photo_id),
+            status="pending",
+            result_object_key=None,
+            result_json=None,
+            error_message="pole_type result not found yet",
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=None,
+            finished_at=None,
+            size_bytes=None,
+        )
+
+    return PoleTypeResultOut(
+        id=str(job.id),
+        photo_id=str(job.photo_id),
+        status=pole_type.get("status") or "pending",
+        result_object_key=pole_type.get("result_object_key"),
+        result_json=pole_type.get("result_json"),
+        error_message=pole_type.get("error_message"),
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=pole_type.get("started_at"),
+        finished_at=pole_type.get("finished_at"),
+        size_bytes=pole_type.get("size_bytes"),
+    )

@@ -1,0 +1,220 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00972.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                449,
+                481
+            ],
+            [
+                498,
+                481
+            ],
+            [
+                498,
+                527
+            ],
+            [
+                449,
+                527
+            ]
+        ],
+        [
+            [
+                795,
+                755
+            ],
+            [
+                816,
+                755
+            ],
+            [
+                816,
+                766
+            ],
+            [
+                795,
+                766
+            ]
+        ],
+        [
+            [
+                796,
+                770
+            ],
+            [
+                813,
+                770
+            ],
+            [
+                813,
+                777
+            ],
+            [
+                796,
+                777
+            ]
+        ],
+        [
+            [
+                370,
+                1364
+            ],
+            [
+                449,
+                1350
+            ],
+            [
+                453,
+                1371
+            ],
+            [
+                373,
+                1385
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        1,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "0",
+        "111",
+        "",
+        ""
+    ],
+    "rec_scores": [
+        0.40915006399154663,
+        0.4119923412799835,
+        0.0,
+        0.0
+    ],
+    "rec_polys": [
+        [
+            [
+                449,
+                481
+            ],
+            [
+                498,
+                481
+            ],
+            [
+                498,
+                527
+            ],
+            [
+                449,
+                527
+            ]
+        ],
+        [
+            [
+                795,
+                755
+            ],
+            [
+                816,
+                755
+            ],
+            [
+                816,
+                766
+            ],
+            [
+                795,
+                766
+            ]
+        ],
+        [
+            [
+                796,
+                770
+            ],
+            [
+                813,
+                770
+            ],
+            [
+                813,
+                777
+            ],
+            [
+                796,
+                777
+            ]
+        ],
+        [
+            [
+                370,
+                1364
+            ],
+            [
+                449,
+                1350
+            ],
+            [
+                453,
+                1371
+            ],
+            [
+                373,
+                1385
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            449,
+            481,
+            498,
+            527
+        ],
+        [
+            795,
+            755,
+            816,
+            766
+        ],
+        [
+            796,
+            770,
+            813,
+            777
+        ],
+        [
+            370,
+            1350,
+            453,
+            1385
+        ]
+    ]
+}

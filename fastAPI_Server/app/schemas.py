@@ -65,7 +65,34 @@ class InferenceResultOut(BaseModel):
     finished_at: datetime | None = None
     size_bytes: int | None = None
 
+class UploadResultOut(BaseModel):
+    duplicate: bool
+    photo: PhotoOut
+    inference: InferenceResultOut | None = None
+
 class InferenceCallbackIn(BaseModel):
+    job_id: str
+    status: str
+    result_object_key: str | None = None
+    result_json: dict | None = None
+    error_message: str | None = None
+    size_bytes: int | None = None
+
+class PoleTypeResultOut(BaseModel):
+    id: str
+    photo_id: str
+    status: str
+    result_object_key: str | None = None
+    result_json: dict | None = None
+    error_message: str | None = None
+    rdid: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    size_bytes: int | None = None
+
+class PoleTypeCallbackIn(BaseModel):
     job_id: str
     status: str
     result_object_key: str | None = None

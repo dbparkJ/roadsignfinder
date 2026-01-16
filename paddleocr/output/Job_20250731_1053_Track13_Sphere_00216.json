@@ -1,0 +1,220 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00216.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                342,
+                0
+            ],
+            [
+                433,
+                0
+            ],
+            [
+                433,
+                36
+            ],
+            [
+                342,
+                36
+            ]
+        ],
+        [
+            [
+                339,
+                50
+            ],
+            [
+                434,
+                55
+            ],
+            [
+                432,
+                96
+            ],
+            [
+                337,
+                91
+            ]
+        ],
+        [
+            [
+                339,
+                88
+            ],
+            [
+                434,
+                94
+            ],
+            [
+                432,
+                135
+            ],
+            [
+                337,
+                129
+            ]
+        ],
+        [
+            [
+                770,
+                613
+            ],
+            [
+                788,
+                613
+            ],
+            [
+                788,
+                634
+            ],
+            [
+                770,
+                634
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "미모오",
+        "직진신호시",
+        "좌회전가능",
+        "A"
+    ],
+    "rec_scores": [
+        0.7011525630950928,
+        0.9909008145332336,
+        0.9974535703659058,
+        0.5259038805961609
+    ],
+    "rec_polys": [
+        [
+            [
+                342,
+                0
+            ],
+            [
+                433,
+                0
+            ],
+            [
+                433,
+                36
+            ],
+            [
+                342,
+                36
+            ]
+        ],
+        [
+            [
+                339,
+                50
+            ],
+            [
+                434,
+                55
+            ],
+            [
+                432,
+                96
+            ],
+            [
+                337,
+                91
+            ]
+        ],
+        [
+            [
+                339,
+                88
+            ],
+            [
+                434,
+                94
+            ],
+            [
+                432,
+                135
+            ],
+            [
+                337,
+                129
+            ]
+        ],
+        [
+            [
+                770,
+                613
+            ],
+            [
+                788,
+                613
+            ],
+            [
+                788,
+                634
+            ],
+            [
+                770,
+                634
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            342,
+            0,
+            433,
+            36
+        ],
+        [
+            337,
+            50,
+            434,
+            96
+        ],
+        [
+            337,
+            88,
+            434,
+            135
+        ],
+        [
+            770,
+            613,
+            788,
+            634
+        ]
+    ]
+}

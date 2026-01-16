@@ -1,0 +1,175 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00346.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                618,
+                434
+            ],
+            [
+                823,
+                443
+            ],
+            [
+                820,
+                504
+            ],
+            [
+                616,
+                495
+            ]
+        ],
+        [
+            [
+                620,
+                497
+            ],
+            [
+                821,
+                503
+            ],
+            [
+                820,
+                535
+            ],
+            [
+                619,
+                529
+            ]
+        ],
+        [
+            [
+                627,
+                977
+            ],
+            [
+                702,
+                956
+            ],
+            [
+                710,
+                987
+            ],
+            [
+                636,
+                1008
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0,
+        0,
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "대진대학교",
+        "DAEJIN UNIVERSITY",
+        "CIRR"
+    ],
+    "rec_scores": [
+        0.9651618003845215,
+        0.9912490844726562,
+        0.5377894639968872
+    ],
+    "rec_polys": [
+        [
+            [
+                618,
+                434
+            ],
+            [
+                823,
+                443
+            ],
+            [
+                820,
+                504
+            ],
+            [
+                616,
+                495
+            ]
+        ],
+        [
+            [
+                620,
+                497
+            ],
+            [
+                821,
+                503
+            ],
+            [
+                820,
+                535
+            ],
+            [
+                619,
+                529
+            ]
+        ],
+        [
+            [
+                627,
+                977
+            ],
+            [
+                702,
+                956
+            ],
+            [
+                710,
+                987
+            ],
+            [
+                636,
+                1008
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            616,
+            434,
+            823,
+            504
+        ],
+        [
+            619,
+            497,
+            821,
+            535
+        ],
+        [
+            627,
+            956,
+            710,
+            1008
+        ]
+    ]
+}

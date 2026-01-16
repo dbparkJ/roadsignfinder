@@ -1,0 +1,85 @@
+{
+    "input_path": "/home/geonws/workspace/2026_project/roadsign_finder/paddleocr/test_file/Job_20250731_1053_Track13_Sphere_00361.jpg",
+    "page_index": null,
+    "model_settings": {
+        "use_doc_preprocessor": true,
+        "use_textline_orientation": true
+    },
+    "doc_preprocessor_res": {
+        "input_path": null,
+        "page_index": null,
+        "model_settings": {
+            "use_doc_orientation_classify": true,
+            "use_doc_unwarping": true
+        },
+        "angle": 0
+    },
+    "dt_polys": [
+        [
+            [
+                123,
+                1291
+            ],
+            [
+                521,
+                1276
+            ],
+            [
+                534,
+                1649
+            ],
+            [
+                136,
+                1664
+            ]
+        ]
+    ],
+    "text_det_params": {
+        "limit_side_len": 64,
+        "limit_type": "min",
+        "thresh": 0.3,
+        "max_side_limit": 4000,
+        "box_thresh": 0.6,
+        "unclip_ratio": 1.5
+    },
+    "text_type": "general",
+    "textline_orientation_angles": [
+        0
+    ],
+    "text_rec_score_thresh": 0.0,
+    "return_word_box": false,
+    "rec_texts": [
+        "p10"
+    ],
+    "rec_scores": [
+        0.33819520473480225
+    ],
+    "rec_polys": [
+        [
+            [
+                123,
+                1291
+            ],
+            [
+                521,
+                1276
+            ],
+            [
+                534,
+                1649
+            ],
+            [
+                136,
+                1664
+            ]
+        ]
+    ],
+    "rec_boxes": [
+        [
+            123,
+            1276,
+            534,
+            1664
+        ]
+    ]
+}
