@@ -11,7 +11,7 @@ class Settings(BaseModel):
     INFERENCE_SAVE_IMAGES: bool = os.getenv("INFERENCE_SAVE_IMAGES", "true").lower() == "true"
     INFERENCE_LOG_TIMING: bool = os.getenv("INFERENCE_LOG_TIMING", "false").lower() == "true"
 
-    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0")
 
     CALLBACK_URL: str = os.getenv("INFERENCE_CALLBACK_URL", "http://localhost:8000/inference/callback")
     CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")

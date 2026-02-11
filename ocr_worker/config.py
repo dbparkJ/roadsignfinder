@@ -10,7 +10,7 @@ class Settings(BaseModel):
     MINIO_CROP_BUCKET: str = os.getenv("MINIO_CROP_BUCKET", "crop")
     MINIO_OCR_BUCKET: str = os.getenv("MINIO_OCR_BUCKET", "ocr")
 
-    CELERY_BROKER_URL: str = os.getenv("OCR_CELERY_BROKER_URL", os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
+    CELERY_BROKER_URL: str = os.getenv("OCR_CELERY_BROKER_URL", os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0"))
 
     CALLBACK_URL: str = os.getenv("OCR_CALLBACK_URL", "http://localhost:8000/ocr/callback")
     CALLBACK_TOKEN: str = os.getenv("OCR_CALLBACK_TOKEN", "change_me")

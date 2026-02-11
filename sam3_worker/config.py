@@ -11,7 +11,7 @@ class Settings(BaseModel):
     SAM3_USE_FP16: bool = os.getenv("SAM3_USE_FP16", "false").lower() == "true"
     SAM3_LOG_TIMING: bool = os.getenv("SAM3_LOG_TIMING", "false").lower() == "true"
 
-    CELERY_BROKER_URL: str = os.getenv("SAM3_CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    CELERY_BROKER_URL: str = os.getenv("SAM3_CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://111.111.111.216:6379/0"))
 
     CALLBACK_URL: str = os.getenv("SAM3_CALLBACK_URL", "http://localhost:8000/sam3/callback")
     CALLBACK_TOKEN: str = os.getenv("POLE_TYPE_CALLBACK_TOKEN", "change_me")
