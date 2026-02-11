@@ -7,20 +7,25 @@ class Settings(BaseModel):
     MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "geonws")
     MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "geonws1234")
     MINIO_SECURE: bool = os.getenv("MINIO_SECURE", "false").lower() == "true"
-    MINIO_BUCKET: str = os.getenv("MINIO_BUCKET", "photos")  # 원본 이미지 버킷
-    INFERENCE_BUCKET: str = os.getenv("INFERENCE_BUCKET", "inference")  # 추론 결과 버킷
+    MINIO_CROP_BUCKET: str = os.getenv("MINIO_CROP_BUCKET", "crop")
     INFERENCE_SAVE_IMAGES: bool = os.getenv("INFERENCE_SAVE_IMAGES", "true").lower() == "true"
     INFERENCE_LOG_TIMING: bool = os.getenv("INFERENCE_LOG_TIMING", "false").lower() == "true"
 
-    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0")
+    CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 
-    CALLBACK_URL: str = os.getenv("INFERENCE_CALLBACK_URL", "http://111.111.111.216:8000/inference/callback")
+    CALLBACK_URL: str = os.getenv("INFERENCE_CALLBACK_URL", "http://localhost:8000/inference/callback")
     CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")
 
     TMP_DIR: str = os.getenv("INFERENCE_TMP_DIR", "/tmp")
     MODEL_NAME: str = os.getenv("MODEL_NAME", "yolo-seg")
     MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/yolo_worker_dev/model/version1.2.pt")
-    SELECTION_ALPHA: float = float(os.getenv("SELECTION_ALPHA", "0.001"))  # conf - alpha*dist 가중치
+    OCR_ENABLED: bool = os.getenv("OCR_ENABLED", "true").lower() == "true"
+    OCR_DEVICE: str = os.getenv("OCR_DEVICE", "gpu:0")
+    OCR_OUTPUT_DIR: str = os.getenv("OCR_OUTPUT_DIR", "/tmp/paddleocr_output")
+    OCR_USE_QUEUES: bool = os.getenv("OCR_USE_QUEUES", "false").lower() == "true"
+    OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "false").lower() == "true"
+    OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "false").lower() == "true"
+    OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "false").lower() == "true"
 
 
 settings = Settings()

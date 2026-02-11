@@ -17,7 +17,7 @@ def _get_model():
     return _model
 
 
-def run_inference_on_file(image_path: str, job_id: str, photo_id: str, rdid: str, img_x: float, img_y: float, alpha: float):
+def run_inference_on_file(image_path: str, job_id: str, photo_id: str, rdid: str, img_x: float, img_y: float):
     """
     이미지 파일 경로를 입력으로 받아 YOLO 세그먼트 추론을 수행하고
     결과 딕셔너리와 주석 이미지를 저장한 로컬 경로(없으면 None)를 반환한다.

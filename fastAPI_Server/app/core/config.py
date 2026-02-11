@@ -12,7 +12,6 @@ class Settings(BaseModel):
     INFERENCE_CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")
     POLE_TYPE_CALLBACK_TOKEN: str = os.getenv("POLE_TYPE_CALLBACK_TOKEN", "change_me")
     INFERENCE_BUCKET: str = os.getenv("INFERENCE_BUCKET", "inference")
-    INFERENCE_SAVE_IMAGES: bool = os.getenv("INFERENCE_SAVE_IMAGES", "true").lower() == "true"
     POLE_TYPE_DEBUG_LOG: bool = os.getenv("POLE_TYPE_DEBUG_LOG", "false").lower() == "true"
 
 settings = Settings()
