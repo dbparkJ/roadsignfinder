@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import text as sql_text
 from geoalchemy2 import Geometry
 
-from .db import Base
+from .core.db import Base
 
 
 class Member(Base):
@@ -81,6 +81,27 @@ class InferenceResult(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+class InferenceDetection(Base):
+    __tablename__ = "inference_detections"
+    __table_args__ = (
+        Index("idx_inference_detections_job_id", "job_id"),
+        Index("idx_inference_detections_photo_id", "photo_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=sql_text("gen_random_uuid()"),
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("inference_results.id", ondelete="CASCADE"), nullable=False)
+    photo_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("photos.id", ondelete="CASCADE"), nullable=False)
+    box_xyxy: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    mask: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    class_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    class_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=sql_text("now()"))
 
 class YoloResultCache(Base):
     __tablename__ = "yolo_result_cache"

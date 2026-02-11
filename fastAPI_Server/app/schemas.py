@@ -56,7 +56,7 @@ class InferenceResultOut(BaseModel):
     photo_id: str
     status: str
     result_object_key: str | None = None
-    result_json: dict | None = None
+    result_json: dict | str | None = None
     error_message: str | None = None
     rdid: str | None = None
     created_at: datetime

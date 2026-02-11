@@ -229,36 +229,24 @@ def run_sam3_on_file(
         sign_h = max(1, y2 - y1 + 1)
 
         v_strip_w = int(sign_w * settings.V_STRIP_SCALE)
-        h_strip_h = int(sign_h * settings.H_STRIP_SCALE)
 
         vx1 = int(0.5 * (x1 + x2) - 0.5 * v_strip_w)
         vx2 = vx1 + v_strip_w
-        hx1 = 0
-        hx2 = width - 1
 
         vy1 = 0
         vy2 = height - 1
-        hy1 = int(0.5 * (y1 + y2) - 0.5 * h_strip_h)
-        hy2 = hy1 + h_strip_h
 
         vx1, vy1, vx2, vy2 = _clamp_box(vx1, vy1, vx2, vy2, width, height)
-        hx1, hy1, hx2, hy2 = _clamp_box(hx1, hy1, hx2, hy2, width, height)
 
         v_strip = image_rgb.crop((vx1, vy1, vx2 + 1, vy2 + 1))
-        h_strip = image_rgb.crop((hx1, hy1, hx2 + 1, hy2 + 1))
 
         v_masks = _filter_masks_by_area(
             _run_sam3_text(model, processor, v_strip, text="pole"),
             settings.MIN_MASK_AREA,
         )
-        h_masks = _filter_masks_by_area(
-            _run_sam3_text(model, processor, h_strip, text="pole"),
-            settings.MIN_MASK_AREA,
-        )
 
         v_union = _union_masks([(m > 0).astype(np.uint8) for m in v_masks])
-        h_sel = _select_horizontal_masks(h_masks, aspect_min=3.0)
-        h_union = _union_masks(h_sel)
+        h_union = None
 
         if v_union is not None:
             v_full = np.zeros((height, width), dtype=np.uint8)
@@ -266,11 +254,7 @@ def run_sam3_on_file(
         else:
             v_full = None
 
-        if h_union is not None:
-            h_full = np.zeros((height, width), dtype=np.uint8)
-            h_full[hy1:hy2 + 1, hx1:hx2 + 1] = h_union
-        else:
-            h_full = None
+        h_full = None
 
         label_code = _classify_pole_shape((x1, y1, x2, y2), v_full, h_full)
         label_name = LABEL_MAP.get(label_code, LABEL_MAP[1499])

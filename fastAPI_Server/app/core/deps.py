@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from .db import get_db
-from .models import Member
+from ..models import Member
 from .security import decode_access_token
 
 bearer_scheme = HTTPBearer(auto_error=True)
