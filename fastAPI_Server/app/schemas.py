@@ -99,3 +99,11 @@ class PoleTypeCallbackIn(BaseModel):
     result_json: dict | None = None
     error_message: str | None = None
     size_bytes: int | None = None
+
+
+class OcrCallbackIn(BaseModel):
+    job_id: str
+    status: str
+    result_json: dict | None = None
+    error_message: str | None = None
+    size_bytes: int | None = None

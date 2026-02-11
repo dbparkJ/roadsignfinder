@@ -11,7 +11,13 @@ from ..core.config import settings
 from ..core.db import get_db, SessionLocal
 from ..models import InferenceResult, Photo, UploadSession, YoloResultCache, InferenceDetection
 from ..schemas import InferenceResultOut, InferenceCallbackIn
-from ..services.upload import log_error, update_upload_session_status, schedule_pole_type
+from ..services.upload import (
+    log_error,
+    update_upload_session_status,
+    schedule_pole_type,
+    schedule_ocr,
+    resolve_inference_status,
+)
 from ..utils.inference import (
     select_nearest_result_json,
     compact_inference_result_json,
@@ -32,8 +38,10 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
     job_id = uuid.UUID(data.job_id)
     now = datetime.now(timezone.utc)
     enqueue_pole_type = False
+    enqueue_ocr = False
     enqueue_job_id = None
     enqueue_photo_id = None
+    enqueue_crop_items: list[dict] = []
     try:
         async with SessionLocal() as db:
             async with db.begin():
@@ -56,21 +64,22 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                 else:
                     job.result_json = data.result_json
 
-                if data.status == "done" and no_detections is False:
-                    job.status = "processing"
+                if data.status == "done":
+                    if no_detections is False:
+                        job.status = resolve_inference_status(job.result_json, fallback="processing") or "processing"
+                    else:
+                        job.status = "done"
                 else:
                     job.status = data.status
                 job.error_message = data.error_message
                 job.size_bytes = data.size_bytes
                 if data.status == "processing" and not job.started_at:
                     job.started_at = now
-                if data.status == "failed" or (data.status == "done" and no_detections is True):
+                if job.status in ("failed", "done"):
                     job.finished_at = now
                 job.updated_at = now
                 us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
                 upload_session = us.scalar_one_or_none()
-                if upload_session:
-                    await update_upload_session_status(upload_session, db)
 
                 if data.status == "done" and isinstance(data.result_json, dict):
                     db.add(
@@ -104,19 +113,62 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                                 class_name=box.get("class_name") if isinstance(box, dict) else None,
                                 confidence=box.get("confidence") if isinstance(box, dict) else None,
                             )
-                        )
+                    )
 
                 if data.status == "done" and no_detections is False:
                     merged = dict(job.result_json or {})
+                    enqueue_job_id = job.id
+                    enqueue_photo_id = job.photo_id
                     if not isinstance(merged.get("pole_type"), dict):
                         enqueue_pole_type = True
-                        enqueue_job_id = job.id
-                        enqueue_photo_id = job.photo_id
+                    crop_items = data.result_json.get("crop_images") if isinstance(data.result_json, dict) else None
+                    if isinstance(crop_items, list) and crop_items and not isinstance(merged.get("ocr"), dict):
+                        enqueue_ocr = True
+                        enqueue_crop_items = crop_items
+                    elif not isinstance(merged.get("ocr"), dict):
+                        merged["ocr"] = {
+                            "status": "done",
+                            "result_json": {"status": "skipped", "reason": "no_crops"},
+                            "error_message": None,
+                            "size_bytes": None,
+                            "started_at": now.isoformat(),
+                            "finished_at": now.isoformat(),
+                            "updated_at": now.isoformat(),
+                        }
+                        job.result_json = merged
+                        job.status = resolve_inference_status(job.result_json, fallback=job.status) or job.status
+                        if job.status in ("done", "failed"):
+                            job.finished_at = now
+                if upload_session:
+                    await update_upload_session_status(upload_session, db)
         if enqueue_pole_type and enqueue_job_id and enqueue_photo_id:
-            async with SessionLocal() as db2:
-                photo = await db2.get(Photo, enqueue_photo_id)
-                if photo:
-                    await schedule_pole_type(photo, enqueue_job_id, db2)
+            try:
+                async with SessionLocal() as db2:
+                    photo = await db2.get(Photo, enqueue_photo_id)
+                    if photo:
+                        await schedule_pole_type(photo, enqueue_job_id, db2)
+            except Exception as e:
+                await log_error(
+                    path="inference_callback:schedule_pole_type",
+                    method=request.method,
+                    status_code=500,
+                    message=str(e),
+                    stacktrace=traceback.format_exc(),
+                )
+        if enqueue_ocr and enqueue_job_id and enqueue_photo_id:
+            try:
+                async with SessionLocal() as db3:
+                    photo = await db3.get(Photo, enqueue_photo_id)
+                    if photo:
+                        await schedule_ocr(photo, enqueue_job_id, enqueue_crop_items, db3)
+            except Exception as e:
+                await log_error(
+                    path="inference_callback:schedule_ocr",
+                    method=request.method,
+                    status_code=500,
+                    message=str(e),
+                    stacktrace=traceback.format_exc(),
+                )
     except HTTPException:
         raise
     except Exception as e:

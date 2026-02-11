@@ -9,8 +9,10 @@ class Settings(BaseModel):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
     CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
     SAM3_CELERY_BROKER_URL: str = os.getenv("SAM3_CELERY_BROKER_URL", os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
+    OCR_CELERY_BROKER_URL: str = os.getenv("OCR_CELERY_BROKER_URL", os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
     INFERENCE_CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")
     POLE_TYPE_CALLBACK_TOKEN: str = os.getenv("POLE_TYPE_CALLBACK_TOKEN", "change_me")
+    OCR_CALLBACK_TOKEN: str = os.getenv("OCR_CALLBACK_TOKEN", "change_me")
     INFERENCE_BUCKET: str = os.getenv("INFERENCE_BUCKET", "inference")
     POLE_TYPE_DEBUG_LOG: bool = os.getenv("POLE_TYPE_DEBUG_LOG", "false").lower() == "true"
 

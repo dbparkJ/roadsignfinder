@@ -17,15 +17,9 @@ class Settings(BaseModel):
     CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")
 
     TMP_DIR: str = os.getenv("INFERENCE_TMP_DIR", "/tmp")
+    CROP_TMP_DIR: str = os.getenv("CROP_TMP_DIR", "/tmp/inference_crop")
     MODEL_NAME: str = os.getenv("MODEL_NAME", "yolo-seg")
     MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/yolo_worker_dev/model/version1.2.pt")
-    OCR_ENABLED: bool = os.getenv("OCR_ENABLED", "true").lower() == "true"
-    OCR_DEVICE: str = os.getenv("OCR_DEVICE", "gpu:0")
-    OCR_OUTPUT_DIR: str = os.getenv("OCR_OUTPUT_DIR", "/tmp/paddleocr_output")
-    OCR_USE_QUEUES: bool = os.getenv("OCR_USE_QUEUES", "false").lower() == "true"
-    OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "false").lower() == "true"
-    OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "false").lower() == "true"
-    OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "false").lower() == "true"
 
 
 settings = Settings()

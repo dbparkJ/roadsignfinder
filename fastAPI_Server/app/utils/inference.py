@@ -149,6 +149,9 @@ def compact_inference_result_json(result_json: dict | None) -> dict | None:
             pole_type = result_json.get("pole_type")
             if pole_type is not None:
                 merged["pole_type"] = pole_type
+            ocr = result_json.get("ocr")
+            if ocr is not None:
+                merged["ocr"] = ocr
             return merged
     return result_json
 

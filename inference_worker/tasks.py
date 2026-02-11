@@ -6,11 +6,11 @@ import requests
 from minio import Minio
 from pathlib import Path
 from PIL import Image
+from shutil import rmtree
 
 from .celery_app import celery_app
 from .config import settings
 from .inference import run_inference_on_file
-from paddleocr.ocr_worker import run_ocr_on_crops
 
 
 def _minio_client():
@@ -129,6 +129,12 @@ def _upload_crops_to_minio(
         except Exception as e:
             item["crop_upload"] = "fail"
             item["crop_upload_error"] = str(e)
+        finally:
+            try:
+                if local_path.exists():
+                    local_path.unlink()
+            except Exception:
+                pass
 
 
 @celery_app.task(name="inference_worker.tasks.run_inference")
@@ -201,9 +207,8 @@ def run_inference(
             print("[inference] output_image=skipped")
         t3 = time.perf_counter()
 
-        if settings.OCR_ENABLED and not no_detections:
-            crops_root = Path(settings.OCR_OUTPUT_DIR) / job_id / "crops"
-            json_root = Path(settings.OCR_OUTPUT_DIR) / job_id / "json"
+        if not no_detections:
+            crops_root = Path(settings.CROP_TMP_DIR) / job_id
             crop_items = _build_yolo_crops(
                 tmp_file,
                 result.get("boxes") or [],
@@ -218,41 +223,17 @@ def run_inference(
             )
             result["crop_images"] = crop_items
             try:
-                result["ocr"] = run_ocr_on_crops(
-                    crops=crop_items,
-                    output_dir=json_root,
-                    device=settings.OCR_DEVICE,
-                    use_queues=settings.OCR_USE_QUEUES,
-                    disable_layout=settings.OCR_DISABLE_LAYOUT,
-                    disable_orientation=settings.OCR_DISABLE_ORIENTATION,
-                    disable_unwarp=settings.OCR_DISABLE_UNWARP,
-                )
-            except Exception as e:
-                result["ocr"] = {
-                    "status": "fail",
-                    "engine": "PaddleOCRVL",
-                    "output_dir": str(json_root),
-                    "total": len(crop_items),
-                    "ok": 0,
-                    "fail": len(crop_items),
-                    "items": [],
-                    "error": str(e),
-                }
-        elif settings.OCR_ENABLED:
+                if crops_root.exists():
+                    rmtree(crops_root)
+            except Exception:
+                pass
+        else:
             result["crop_images"] = []
-            result["ocr"] = {
-                "status": "skipped",
-                "reason": "no_detections",
-                "total": 0,
-                "ok": 0,
-                "fail": 0,
-                "items": [],
-            }
         t4 = time.perf_counter()
 
         if settings.INFERENCE_LOG_TIMING:
             print(
-                "[inference] timing download={:.3f}s infer={:.3f}s upload={:.3f}s ocr={:.3f}s total={:.3f}s".format(
+                "[inference] timing download={:.3f}s infer={:.3f}s upload={:.3f}s crop={:.3f}s total={:.3f}s".format(
                     t1 - t0, t2 - t1, t3 - t2, t4 - t3, t4 - t0
                 )
             )
@@ -262,7 +243,7 @@ def run_inference(
                 "job_id": job_id,
                 "status": "done",
                 "result_object_key": annotated_key,
-                "result_json": {**result, "annotated_key": annotated_key} if not no_detections else {"no_detections": True, "selected": "none", "ocr": {"status": "skipped", "reason": "no_detections"}},
+                "result_json": {**result, "annotated_key": annotated_key} if not no_detections else {"no_detections": True, "selected": "none", "crop_images": []},
                 "size_bytes": result_size,
                 "error_message": None,
             }

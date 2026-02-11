@@ -10,7 +10,7 @@ from ..core.config import settings
 from ..core.db import get_db, SessionLocal
 from ..models import InferenceResult, PoleTypeDebugLog, PoleTypeResultCache, UploadSession
 from ..schemas import PoleTypeResultOut, PoleTypeCallbackIn
-from ..services.upload import log_error, update_upload_session_status
+from ..services.upload import log_error, update_upload_session_status, resolve_inference_status
 
 router = APIRouter(tags=["pole_type"])
 
@@ -44,15 +44,9 @@ async def pole_type_callback(data: PoleTypeCallbackIn, request: Request):
                 if data.status in ("done", "failed"):
                     pole_type_payload["finished_at"] = now.isoformat()
                 merged["pole_type"] = pole_type_payload
-                yolo_payload = merged.get("yolo")
-                if isinstance(yolo_payload, dict) and data.status in ("done", "failed"):
-                    combined = dict(yolo_payload)
-                    combined["pole_type"] = pole_type_payload
-                    job.result_json = combined
-                else:
-                    job.result_json = merged
-                if data.status in ("done", "failed"):
-                    job.status = data.status
+                job.result_json = merged
+                job.status = resolve_inference_status(job.result_json, fallback=job.status) or job.status
+                if job.status in ("done", "failed"):
                     job.finished_at = now
                 job.updated_at = now
 

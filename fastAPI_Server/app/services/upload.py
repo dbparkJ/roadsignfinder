@@ -11,7 +11,7 @@ from minio.error import S3Error
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..celery_apps import celery_app, sam3_celery_app
+from ..celery_apps import celery_app, sam3_celery_app, ocr_celery_app
 from ..core.config import settings
 from ..core.db import SessionLocal
 from ..models import ErrorLog, InferenceResult, Photo, UploadSession
@@ -26,6 +26,44 @@ def normalize_dt(dt):
 
 def inference_prefix(member_id: uuid.UUID) -> str:
     return str(member_id).lower()
+
+
+def _result_no_detections(result_json: dict | None) -> bool | None:
+    if not isinstance(result_json, dict):
+        return None
+    yolo = result_json.get("yolo")
+    if isinstance(yolo, dict):
+        return yolo.get("no_detections")
+    return result_json.get("no_detections")
+
+
+def _sub_status(result_json: dict | None, key: str) -> str | None:
+    if not isinstance(result_json, dict):
+        return None
+    payload = result_json.get(key)
+    if isinstance(payload, dict):
+        return payload.get("status")
+    return None
+
+
+def resolve_inference_status(result_json: dict | None, fallback: str | None = None) -> str | None:
+    no_detections = _result_no_detections(result_json)
+    if no_detections is True:
+        return "done"
+
+    child_statuses = []
+    for key in ("pole_type", "ocr"):
+        status = _sub_status(result_json, key)
+        if status:
+            child_statuses.append(status)
+
+    if any(status == "failed" for status in child_statuses):
+        return "failed"
+    if child_statuses and all(status == "done" for status in child_statuses):
+        return "done"
+    if child_statuses and any(status in ("queued", "processing", "done") for status in child_statuses):
+        return "processing"
+    return fallback
 
 
 async def log_error(
@@ -60,19 +98,16 @@ async def update_upload_session_status(
         return
     infer_job = await db.get(InferenceResult, upload_session.job_id) if upload_session.job_id else None
     infer_status = infer_job.status if infer_job else None
-    pole_type_status = None
-    infer_no_detections = None
-    if infer_job and isinstance(infer_job.result_json, dict):
-        pole_type_status = (infer_job.result_json.get("pole_type") or {}).get("status")
-        infer_no_detections = infer_job.result_json.get("no_detections")
+    inferred_status = resolve_inference_status(
+        infer_job.result_json if infer_job else None,
+        fallback=infer_status,
+    )
 
-    if infer_status == "failed" or pole_type_status == "failed":
+    if inferred_status == "failed":
         upload_session.status = "failed"
-    elif infer_status == "done" and pole_type_status == "done":
+    elif inferred_status == "done":
         upload_session.status = "done"
-    elif infer_status == "done" and pole_type_status is None and infer_no_detections is True:
-        upload_session.status = "done"
-    elif infer_status in ("processing", "done") or pole_type_status in ("processing", "done"):
+    elif inferred_status in ("processing", "queued"):
         upload_session.status = "processing"
 
 
@@ -163,6 +198,9 @@ async def schedule_pole_type(photo: Photo, inference_job_id: uuid.UUID, db: Asyn
                 "size_bytes": None,
             }
             job.result_json = merged
+            job.status = resolve_inference_status(job.result_json, fallback="failed") or "failed"
+            if job.status in ("done", "failed"):
+                job.finished_at = datetime.now(timezone.utc)
             await db.commit()
         await log_error(
             path="enqueue_pole_type",
@@ -172,6 +210,65 @@ async def schedule_pole_type(photo: Photo, inference_job_id: uuid.UUID, db: Asyn
             stacktrace=traceback.format_exc(),
         )
         raise HTTPException(status_code=502, detail="pole_type 작업 생성에 실패했습니다.") from e
+
+
+async def schedule_ocr(
+    photo: Photo,
+    inference_job_id: uuid.UUID,
+    crop_items: list[dict],
+    db: AsyncSession,
+) -> None:
+    result_prefix = inference_prefix(photo.member_id)
+    payload = {
+        "job_id": str(inference_job_id),
+        "photo_id": str(photo.id),
+        "rdid": photo.rdid,
+        "crop_items": crop_items,
+        "result_prefix": result_prefix,
+    }
+    try:
+        job = await db.get(InferenceResult, inference_job_id)
+        if job:
+            merged = dict(job.result_json or {})
+            merged["ocr"] = {
+                "status": "queued",
+                "result_json": None,
+                "error_message": None,
+                "size_bytes": None,
+            }
+            job.result_json = merged
+            await db.commit()
+
+        await run_in_threadpool(
+            ocr_celery_app.send_task,
+            "ocr_worker.tasks.run_ocr",
+            args=[],
+            kwargs=payload,
+            queue="ocr",
+        )
+    except Exception as e:
+        job = await db.get(InferenceResult, inference_job_id)
+        if job:
+            merged = dict(job.result_json or {})
+            merged["ocr"] = {
+                "status": "failed",
+                "result_json": None,
+                "error_message": f"enqueue failed: {e}",
+                "size_bytes": None,
+            }
+            job.result_json = merged
+            job.status = resolve_inference_status(job.result_json, fallback="failed") or "failed"
+            if job.status in ("done", "failed"):
+                job.finished_at = datetime.now(timezone.utc)
+            await db.commit()
+        await log_error(
+            path="enqueue_ocr",
+            method=None,
+            status_code=None,
+            message=str(e),
+            stacktrace=traceback.format_exc(),
+        )
+        raise HTTPException(status_code=502, detail="ocr 작업 생성에 실패했습니다.") from e
 
 
 async def register_uploaded_photo(session_id, member_id, object_key, original_filename, content_type):
