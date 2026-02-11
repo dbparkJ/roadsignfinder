@@ -1,0 +1,42 @@
+# API
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+email-validator
+
+# DB
+sqlalchemy
+asyncpg
+geoalchemy2
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Queue / storage / http
+celery
+redis
+minio
+requests
+
+# CV / inference
+pillow
+numpy
+imgutils
+
+# PyTorch (CUDA 12.6)
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.7.1+cu126
+
+# PaddleOCR / PaddlePaddle (CUDA 12.6)
+--extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/
+paddlepaddle-gpu==3.2.1
+paddleocr[doc-parser]
+
+transformers
+ultralytics
+
+# Utilities used in test scripts
+tqdm
+opencv-python
