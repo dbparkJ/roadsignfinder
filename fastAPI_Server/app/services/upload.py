@@ -18,6 +18,11 @@ from ..models import ErrorLog, InferenceResult, Photo, UploadSession
 from ..core.storage import MINIO_BUCKET, minio_client
 
 
+def _debug(msg: str) -> None:
+    if settings.API_DEBUG_LOG:
+        print(msg)
+
+
 def normalize_dt(dt):
     if not dt:
         return datetime.now(timezone.utc)
@@ -277,7 +282,7 @@ async def register_uploaded_photo(session_id, member_id, object_key, original_fi
     presign 발급 시 백그라운드 태스크로 호출된다.
     """
     async with SessionLocal() as session:
-        print(
+        _debug(
             f"[DEBUG] register_uploaded_photo start session_id={session_id} member_id={member_id} "
             f"object_key={object_key} filename={original_filename} content_type={content_type}"
         )
@@ -299,7 +304,7 @@ async def register_uploaded_photo(session_id, member_id, object_key, original_fi
                 us_for_xy = await session.execute(select(UploadSession).where(UploadSession.id == session_id))
                 xy = us_for_xy.scalar_one_or_none()
                 if xy:
-                    print(
+                    _debug(
                         f"[DEBUG] register_uploaded_photo xy session_id={session_id} "
                         f"img=({xy.img_x},{xy.img_y}) geo=({xy.geo_x},{xy.geo_y}) rdid={xy.rdid}"
                     )

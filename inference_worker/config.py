@@ -1,6 +1,8 @@
 import os
 from pydantic import BaseModel
 
+DEFAULT_API_BASE_URL = os.getenv("API_BASE_URL", "http://111.111.111.79:8000").rstrip("/")
+
 
 class Settings(BaseModel):
     MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "111.111.111.216:9000")
@@ -10,16 +12,20 @@ class Settings(BaseModel):
     MINIO_CROP_BUCKET: str = os.getenv("MINIO_CROP_BUCKET", "crop")
     INFERENCE_SAVE_IMAGES: bool = os.getenv("INFERENCE_SAVE_IMAGES", "true").lower() == "true"
     INFERENCE_LOG_TIMING: bool = os.getenv("INFERENCE_LOG_TIMING", "false").lower() == "true"
+    INFERENCE_DEBUG_LOG: bool = os.getenv("INFERENCE_DEBUG_LOG", "false").lower() == "true"
 
     CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0")
 
-    CALLBACK_URL: str = os.getenv("INFERENCE_CALLBACK_URL", "http://localhost:8000/inference/callback")
+    CALLBACK_URL: str = os.getenv(
+        "INFERENCE_CALLBACK_URL",
+        f"{DEFAULT_API_BASE_URL}/inference/callback",
+    )
     CALLBACK_TOKEN: str = os.getenv("INFERENCE_CALLBACK_TOKEN", "change_me")
 
     TMP_DIR: str = os.getenv("INFERENCE_TMP_DIR", "/tmp")
     CROP_TMP_DIR: str = os.getenv("CROP_TMP_DIR", "/tmp/inference_crop")
     MODEL_NAME: str = os.getenv("MODEL_NAME", "yolo-seg")
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geonws/workspace/2026_project/roadsign_finder/yolo_worker_dev/model/version1.2.pt")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geon_lab/doje/final_project/seongbin/roadsignfinder/l_model/weights/best.pt")
 
 
 settings = Settings()

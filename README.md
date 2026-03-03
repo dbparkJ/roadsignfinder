@@ -46,9 +46,15 @@ python -m pip install -r requirements.torch-workers.txt
 ### 3) OCR Worker Environment (Paddle)
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install -r requirements.ocr-worker.txt
+uv pip install --no-config \
+  --index-url https://pypi.org/simple \
+  --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/ \
+  --index-strategy unsafe-best-match \
+  --refresh \
+  -r requirements.ocr-worker.txt
 ```
+
+`uv` 기본 전략(`first-index`)에서는 `celery` 같은 패키지를 Paddle 인덱스에서 먼저 찾고 실패할 수 있으므로, OCR 환경은 위 옵션으로 설치합니다.
 
 필요 시 NumPy를 고정하려면:
 

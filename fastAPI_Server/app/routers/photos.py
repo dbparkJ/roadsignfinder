@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.db import get_db
 from ..core.deps import get_current_member
+from ..core.config import settings
 from ..models import Member, Photo, UploadSession, YoloResultCache, PoleTypeResultCache, InferenceResult, InferenceDetection
 from ..schemas import PhotoPresignIn, PhotoPresignOut, UploadResultOut, PhotoOut, InferenceResultOut
 from ..core.storage import minio_client, MINIO_BUCKET
@@ -26,13 +27,18 @@ from ..utils.inference import (
 router = APIRouter(tags=["photos"])
 
 
+def _debug(msg: str) -> None:
+    if settings.API_DEBUG_LOG:
+        print(msg)
+
+
 @router.post("/photos/presign", response_model=PhotoPresignOut)
 async def presign_photo_upload(
     data: PhotoPresignIn,
     db: AsyncSession = Depends(get_db),
     current: Member = Depends(get_current_member),
 ):
-    print(
+    _debug(
         f"[DEBUG] /photos/presign user={current.id} filename={data.filename} "
         f"img=({data.img_x},{data.img_y}) geo=({data.geo_x},{data.geo_y}) rdid={data.rdid}"
     )
@@ -116,7 +122,7 @@ async def upload_photo(
     current: Member = Depends(get_current_member),
     db: AsyncSession = Depends(get_db),
 ):
-    print(
+    _debug(
         f"[DEBUG] /photos user={current.id} filename={file.filename} content_type={file.content_type} "
         f"img=({img_x},{img_y}) geo=({geo_x},{geo_y}) rdid={rdid}"
     )

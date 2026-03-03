@@ -15,5 +15,6 @@ class Settings(BaseModel):
     OCR_CALLBACK_TOKEN: str = os.getenv("OCR_CALLBACK_TOKEN", "change_me")
     INFERENCE_BUCKET: str = os.getenv("INFERENCE_BUCKET", "inference")
     POLE_TYPE_DEBUG_LOG: bool = os.getenv("POLE_TYPE_DEBUG_LOG", "false").lower() == "true"
+    API_DEBUG_LOG: bool = os.getenv("API_DEBUG_LOG", "false").lower() == "true"
 
 settings = Settings()

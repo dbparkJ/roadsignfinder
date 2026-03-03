@@ -12,6 +12,11 @@ from .config import settings
 from .sam3_inference import run_sam3_on_file
 
 
+def _debug(msg: str) -> None:
+    if settings.SAM3_DEBUG_LOG:
+        print(msg)
+
+
 def _minio_client():
     return Minio(
         settings.MINIO_ENDPOINT,
@@ -51,9 +56,9 @@ def run_sam3(
 
     use_existing = os.path.exists(tmp_file)
     if use_existing:
-        print(f"[pole_type] reuse_tmp={tmp_file}")
+        _debug(f"[pole_type] reuse_tmp={tmp_file}")
     else:
-        print(f"[pole_type] download bucket={bucket} object_key={object_key} tmp={tmp_file}")
+        _debug(f"[pole_type] download bucket={bucket} object_key={object_key} tmp={tmp_file}")
     _callback({"job_id": job_id, "status": "processing", "result_object_key": None, "result_json": None, "error_message": None})
 
     try:
@@ -100,9 +105,9 @@ def run_sam3(
                 )
                 annotated_key = f"{result_bucket}/{annotated_object_key}"
                 result_size = size
-            print(f"[pole_type] output_image={annotated_key}")
+            _debug(f"[pole_type] output_image={annotated_key}")
         elif annotated_path and not settings.INFERENCE_SAVE_IMAGES:
-            print("[pole_type] output_image=skipped")
+            _debug("[pole_type] output_image=skipped")
         t3 = time.perf_counter()
         if settings.SAM3_LOG_TIMING:
             print(

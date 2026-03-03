@@ -1,5 +1,6 @@
 import uuid
 import traceback
+import math
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
@@ -16,6 +17,20 @@ from ..services.upload import (
 )
 
 router = APIRouter(tags=["ocr"])
+
+
+def _sanitize_json_payload(value):
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {str(k): _sanitize_json_payload(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_json_payload(v) for v in value]
+    if isinstance(value, tuple):
+        return [_sanitize_json_payload(v) for v in value]
+    return value
 
 
 @router.post("/ocr/callback", status_code=204)
@@ -36,7 +51,7 @@ async def ocr_callback(data: OcrCallbackIn, request: Request):
                 merged = dict(job.result_json or {})
                 ocr_payload = {
                     "status": data.status,
-                    "result_json": data.result_json,
+                    "result_json": _sanitize_json_payload(data.result_json),
                     "error_message": data.error_message,
                     "size_bytes": data.size_bytes,
                     "updated_at": now.isoformat(),
@@ -60,6 +75,8 @@ async def ocr_callback(data: OcrCallbackIn, request: Request):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ERROR] ocr_callback failed job_id={data.job_id}: {e}")
+        print(traceback.format_exc())
         await log_error(
             path="ocr_callback",
             method=request.method,

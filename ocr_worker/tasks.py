@@ -1,14 +1,21 @@
 import json
+import time
 import shutil
+import traceback
 from pathlib import Path
 
 import requests
 from minio import Minio
 
-from .paddle_ocr import run_ocr_on_crops
+from .paddle_ocr import run_ocr_on_crops, release_ocr_runtime
 
 from .celery_app import celery_app
 from .config import settings
+
+
+def _debug(msg: str) -> None:
+    if settings.OCR_DEBUG_LOG:
+        print(msg)
 
 
 def _minio_client():
@@ -26,9 +33,27 @@ def _callback(payload: dict):
         "x-ocr-token": settings.CALLBACK_TOKEN,
     }
     try:
-        requests.post(settings.CALLBACK_URL, headers=headers, data=json.dumps(payload), timeout=10)
+        resp = requests.post(
+            settings.CALLBACK_URL,
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=10,
+        )
+        _debug(
+            "[ocr] callback_sent "
+            f"url={settings.CALLBACK_URL} status={resp.status_code} "
+            f"job_id={payload.get('job_id')} state={payload.get('status')}"
+        )
+        if resp.status_code >= 400:
+            body = (resp.text or "").strip().replace("\n", " ")
+            if len(body) > 200:
+                body = body[:200] + "..."
+            print(
+                "[WARN] ocr callback non-2xx "
+                f"url={settings.CALLBACK_URL} status={resp.status_code} body={body}"
+            )
     except Exception as e:
-        print(f"[WARN] ocr callback failed: {e}")
+        print(f"[WARN] ocr callback failed url={settings.CALLBACK_URL}: {e}")
 
 
 def _download_crops(client: Minio, crop_items: list[dict], tmp_dir: Path) -> tuple[list[dict], list[dict]]:
@@ -128,6 +153,12 @@ def run_ocr(
     crop_items: list[dict] | None = None,
     result_prefix: str = "",
 ):
+    _debug(
+        "[ocr] task_start "
+        f"job_id={job_id} callback_url={settings.CALLBACK_URL} "
+        f"token_set={'yes' if settings.CALLBACK_TOKEN else 'no'} "
+        f"crops={len(crop_items or [])} device={settings.OCR_DEVICE}"
+    )
     client = _minio_client()
     crops = crop_items or []
     tmp_root = Path(settings.TMP_DIR).expanduser().resolve() / job_id
@@ -147,7 +178,13 @@ def run_ocr(
     )
 
     try:
+        t0 = time.perf_counter()
         downloaded, download_failures = _download_crops(client, crops, tmp_crops_dir)
+        t1 = time.perf_counter()
+        _debug(
+            "[ocr] stage=download_done "
+            f"ok={len(downloaded)} fail={len(download_failures)} sec={t1 - t0:.3f}"
+        )
         if not downloaded:
             payload = {
                 "status": "done",
@@ -171,6 +208,7 @@ def run_ocr(
             )
             return
 
+        _debug(f"[ocr] stage=ocr_start items={len(downloaded)}")
         ocr_payload = run_ocr_on_crops(
             crops=downloaded,
             output_dir=output_dir,
@@ -179,6 +217,12 @@ def run_ocr(
             disable_layout=settings.OCR_DISABLE_LAYOUT,
             disable_orientation=settings.OCR_DISABLE_ORIENTATION,
             disable_unwarp=settings.OCR_DISABLE_UNWARP,
+        )
+        t2 = time.perf_counter()
+        _debug(
+            "[ocr] stage=ocr_done "
+            f"status={ocr_payload.get('status')} ok={ocr_payload.get('ok')} "
+            f"fail={ocr_payload.get('fail')} sec={t2 - t1:.3f}"
         )
         ocr_payload["rdid"] = rdid
         if download_failures:
@@ -197,6 +241,11 @@ def run_ocr(
             photo_id=photo_id,
             job_id=job_id,
         )
+        t3 = time.perf_counter()
+        _debug(
+            "[ocr] stage=upload_done "
+            f"uploaded_size={uploaded_size} sec={t3 - t2:.3f}"
+        )
         _callback(
             {
                 "job_id": job_id,
@@ -207,6 +256,8 @@ def run_ocr(
             }
         )
     except Exception as e:
+        print(f"[ERROR] run_ocr failed job_id={job_id}: {e}")
+        print(traceback.format_exc())
         _callback(
             {
                 "job_id": job_id,
@@ -217,6 +268,8 @@ def run_ocr(
             }
         )
     finally:
+        if settings.OCR_RELEASE_GPU_CACHE:
+            release_ocr_runtime(drop_pipeline=settings.OCR_DROP_PIPELINE_AFTER_TASK)
         try:
             if tmp_root.exists():
                 shutil.rmtree(tmp_root)

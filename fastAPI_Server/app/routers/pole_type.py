@@ -15,6 +15,7 @@ from ..services.upload import log_error, update_upload_session_status, resolve_i
 router = APIRouter(tags=["pole_type"])
 
 
+@router.post("/sam3/callback", status_code=204, include_in_schema=False)
 @router.post("/pole_type/callback", status_code=204)
 async def pole_type_callback(data: PoleTypeCallbackIn, request: Request):
     token = request.headers.get("x-pole-type-token")
@@ -80,6 +81,8 @@ async def pole_type_callback(data: PoleTypeCallbackIn, request: Request):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ERROR] pole_type_callback failed job_id={data.job_id}: {e}")
+        print(traceback.format_exc())
         await log_error(
             path="pole_type_callback",
             method=request.method,

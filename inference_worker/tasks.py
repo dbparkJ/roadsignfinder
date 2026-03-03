@@ -2,6 +2,7 @@ import os
 import time
 import json
 import math
+import traceback
 import requests
 from minio import Minio
 from pathlib import Path
@@ -11,6 +12,11 @@ from shutil import rmtree
 from .celery_app import celery_app
 from .config import settings
 from .inference import run_inference_on_file
+
+
+def _debug(msg: str) -> None:
+    if settings.INFERENCE_DEBUG_LOG:
+        print(msg)
 
 
 def _minio_client():
@@ -28,10 +34,28 @@ def _callback(payload: dict):
         "x-inference-token": settings.CALLBACK_TOKEN,
     }
     try:
-        requests.post(settings.CALLBACK_URL, headers=headers, data=json.dumps(payload), timeout=10)
+        resp = requests.post(
+            settings.CALLBACK_URL,
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=10,
+        )
+        _debug(
+            "[inference] callback_sent "
+            f"url={settings.CALLBACK_URL} status={resp.status_code} "
+            f"job_id={payload.get('job_id')} state={payload.get('status')}"
+        )
+        if resp.status_code >= 400:
+            body = (resp.text or "").strip().replace("\n", " ")
+            if len(body) > 200:
+                body = body[:200] + "..."
+            print(
+                "[WARN] callback non-2xx "
+                f"url={settings.CALLBACK_URL} status={resp.status_code} body={body}"
+            )
     except Exception as e:
         # 최종 콜백 실패 시 로그만 남김
-        print(f"[WARN] callback failed: {e}")
+        print(f"[WARN] callback failed url={settings.CALLBACK_URL}: {e}")
 
 
 def _safe_token(v: str | None) -> str:
@@ -149,6 +173,12 @@ def run_inference(
     result_bucket: str,
     result_prefix: str,
 ):
+    _debug(
+        "[inference] task_start "
+        f"job_id={job_id} callback_url={settings.CALLBACK_URL} "
+        f"token_set={'yes' if settings.CALLBACK_TOKEN else 'no'} "
+        f"model_path={settings.MODEL_PATH} model_exists={os.path.exists(settings.MODEL_PATH)}"
+    )
     client = _minio_client()
     ext = Path(object_key).suffix or ".bin"
     os.makedirs(settings.TMP_DIR, exist_ok=True)
@@ -167,13 +197,15 @@ def run_inference(
         client.fget_object(bucket, object_key, tmp_file)
         if not os.path.exists(tmp_file):
             raise RuntimeError(f"downloaded file missing: {tmp_file}")
-        print(f"[inference] input_image={tmp_file}")
+        _debug(f"[inference] input_image={tmp_file}")
         t1 = time.perf_counter()
         # 추론 결과 업로드할 버킷 존재 여부 확인
         if not client.bucket_exists(result_bucket):
             client.make_bucket(result_bucket)
 
+        _debug(f"[inference] stage=model_start job_id={job_id}")
         result, annotated_path = run_inference_on_file(tmp_file, job_id, photo_id, rdid, img_x, img_y)
+        _debug(f"[inference] stage=model_done job_id={job_id}")
         no_detections = result.get("no_detections")
         if no_detections is False:
             cleanup_tmp = False
@@ -202,9 +234,9 @@ def run_inference(
                     os.remove(annotated_path)
                 except Exception:
                     pass
-            print(f"[inference] output_image={annotated_key}")
+            _debug(f"[inference] output_image={annotated_key}")
         elif not no_detections and not settings.INFERENCE_SAVE_IMAGES:
-            print("[inference] output_image=skipped")
+            _debug("[inference] output_image=skipped")
         t3 = time.perf_counter()
 
         if not no_detections:
@@ -249,6 +281,8 @@ def run_inference(
             }
         )
     except Exception as e:
+        print(f"[ERROR] run_inference failed job_id={job_id}: {e}")
+        print(traceback.format_exc())
         _callback(
             {
                 "job_id": job_id,

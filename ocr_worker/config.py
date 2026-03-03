@@ -1,6 +1,8 @@
 import os
 from pydantic import BaseModel
 
+DEFAULT_API_BASE_URL = os.getenv("API_BASE_URL", "http://111.111.111.79:8000").rstrip("/")
+
 
 class Settings(BaseModel):
     MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "111.111.111.216:9000")
@@ -12,8 +14,12 @@ class Settings(BaseModel):
 
     CELERY_BROKER_URL: str = os.getenv("OCR_CELERY_BROKER_URL", os.getenv("CELERY_BROKER_URL", "redis://111.111.111.216:6379/0"))
 
-    CALLBACK_URL: str = os.getenv("OCR_CALLBACK_URL", "http://localhost:8000/ocr/callback")
+    CALLBACK_URL: str = os.getenv("OCR_CALLBACK_URL", f"{DEFAULT_API_BASE_URL}/ocr/callback")
     CALLBACK_TOKEN: str = os.getenv("OCR_CALLBACK_TOKEN", "change_me")
+    OCR_DEBUG_LOG: bool = os.getenv("OCR_DEBUG_LOG", "false").lower() == "true"
+    OCR_RELEASE_GPU_CACHE: bool = os.getenv("OCR_RELEASE_GPU_CACHE", "true").lower() == "true"
+    OCR_REUSE_PIPELINE: bool = os.getenv("OCR_REUSE_PIPELINE", "true").lower() == "true"
+    OCR_DROP_PIPELINE_AFTER_TASK: bool = os.getenv("OCR_DROP_PIPELINE_AFTER_TASK", "false").lower() == "true"
 
     TMP_DIR: str = os.getenv("OCR_TMP_DIR", "/tmp/ocr_worker")
     OCR_OUTPUT_DIR: str = os.getenv("OCR_OUTPUT_DIR", "/tmp/paddleocr_output")
@@ -22,6 +28,10 @@ class Settings(BaseModel):
     OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "false").lower() == "true"
     OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "false").lower() == "true"
     OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "false").lower() == "true"
+    OCR_WORKER_CONCURRENCY: int = int(os.getenv("OCR_WORKER_CONCURRENCY", "1"))
+    OCR_WORKER_PREFETCH_MULTIPLIER: int = int(os.getenv("OCR_WORKER_PREFETCH_MULTIPLIER", "1"))
+    # 0 or negative means disabled (do not recycle child process by task count).
+    OCR_WORKER_MAX_TASKS_PER_CHILD: int = int(os.getenv("OCR_WORKER_MAX_TASKS_PER_CHILD", "0"))
 
 
 settings = Settings()

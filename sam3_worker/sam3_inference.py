@@ -15,6 +15,11 @@ _sam3_model = None
 _sam3_processor = None
 _yolo_model = None
 
+
+def _debug(msg: str) -> None:
+    if settings.SAM3_DEBUG_LOG:
+        print(msg)
+
 LABEL_MAP = {
     1401: "단주식",
     1402: "복주식",
@@ -180,7 +185,7 @@ def run_sam3_on_file(
     overlay_base_path: str | None = None,
 ):
     started_at = datetime.now(timezone.utc).isoformat()
-    print(f"[pole_type] input_image={image_path}")
+    _debug(f"[pole_type] input_image={image_path}")
     model, processor = _get_sam3()
     yolo = _get_yolo()
 
@@ -213,7 +218,7 @@ def run_sam3_on_file(
             "started_at": started_at,
             "finished_at": datetime.now(timezone.utc).isoformat(),
         }
-        print("[pole_type] result_image=none")
+        _debug("[pole_type] result_image=none")
         return result, None
 
     sign_masks = None
@@ -301,5 +306,5 @@ def run_sam3_on_file(
         annotated_path = os.path.join(settings.TMP_DIR, f"{job_id}_sam3.jpg")
         overlay.save(annotated_path)
 
-    print(f"[pole_type] result_image={annotated_path if annotated_path else 'none'}")
+    _debug(f"[pole_type] result_image={annotated_path if annotated_path else 'none'}")
     return result, annotated_path

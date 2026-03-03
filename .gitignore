@@ -10,3 +10,5 @@ __pycache__/
 
 # 테스트/샘플 이미지
 test_file/
+
+token.txt

@@ -29,6 +29,11 @@ from ..utils.inference import (
 router = APIRouter(tags=["inference"])
 
 
+def _debug(msg: str) -> None:
+    if settings.API_DEBUG_LOG:
+        print(msg)
+
+
 @router.post("/inference/callback", status_code=204)
 async def inference_callback(data: InferenceCallbackIn, request: Request):
     token = request.headers.get("x-inference-token")
@@ -94,7 +99,7 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                     )
                     boxes = data.result_json.get("boxes") or []
                     masks = data.result_json.get("masks") or []
-                    print(
+                    _debug(
                         f"[DEBUG] inference_callback save_detections job_id={job.id} "
                         f"boxes={len(boxes)} masks={len(masks)}"
                     )
@@ -212,7 +217,7 @@ async def get_inference_result(
             }
             for d in det_rows.scalars().all()
         ]
-        print(
+        _debug(
             f"[DEBUG] get_inference_result job_id={job.id} sel=({sel_x},{sel_y}) dets={len(dets)}"
         )
         selected_det = select_nearest_detection(dets, sel_x, sel_y)
@@ -325,7 +330,7 @@ async def get_inference_result_generic(
             }
             for d in det_rows.scalars().all()
         ]
-        print(
+        _debug(
             f"[DEBUG] get_inference_result_generic job_id={job.id} sel=({sel_x},{sel_y}) dets={len(dets)}"
         )
         selected_det = select_nearest_detection(dets, sel_x, sel_y)
@@ -441,7 +446,7 @@ async def get_inference_by_session(
             }
             for d in det_rows.scalars().all()
         ]
-        print(
+        _debug(
             f"[DEBUG] get_inference_by_session job_id={job.id} sel=({sel_x},{sel_y}) dets={len(dets)}"
         )
         if not dets and job.status in ("queued", "processing"):
@@ -543,7 +548,7 @@ async def wait_inference_result(
                     }
                     for d in det_rows.scalars().all()
                 ]
-                print(
+                _debug(
                     f"[DEBUG] wait_inference_result job_id={job.id} sel=({sel_x},{sel_y}) dets={len(dets)}"
                 )
                 selected_det = select_nearest_detection(dets, sel_x, sel_y)
@@ -609,7 +614,7 @@ async def wait_inference_result(
                     }
                     for d in det_rows.scalars().all()
                 ]
-                print(
+                _debug(
                     f"[DEBUG] wait_inference_result timeout job_id={job.id} sel=({sel_x},{sel_y}) dets={len(dets)}"
                 )
                 selected_det = select_nearest_detection(dets, sel_x, sel_y)

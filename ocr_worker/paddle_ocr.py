@@ -1,12 +1,24 @@
 import importlib
+import gc
 import json
 import os
 import sys
 from pathlib import Path
 from typing import Any
 
+from .config import settings
+
 # paddle/paddleocr import 전에 설정해야 적용됨
 os.environ.setdefault("FLAGS_allocator_strategy", "naive_best_fit")
+
+
+def _debug(msg: str) -> None:
+    if settings.OCR_DEBUG_LOG:
+        print(msg)
+
+
+_ocr_pipeline = None
+_ocr_pipeline_key = None
 
 
 def _import_paddleocr_vl():
@@ -44,6 +56,67 @@ def _load_json(path: Path) -> dict[str, Any] | list[Any] | Any:
         return json.load(fp)
 
 
+def _build_pipeline(
+    device: str,
+    disable_layout: bool,
+    disable_orientation: bool,
+    disable_unwarp: bool,
+):
+    PaddleOCRVL = _import_paddleocr_vl()
+    return PaddleOCRVL(
+        device=device,
+        use_layout_detection=not disable_layout,
+        use_doc_orientation_classify=not disable_orientation,
+        use_doc_unwarping=not disable_unwarp,
+    )
+
+
+def _get_pipeline(
+    device: str,
+    disable_layout: bool,
+    disable_orientation: bool,
+    disable_unwarp: bool,
+):
+    global _ocr_pipeline, _ocr_pipeline_key
+    key = (device, disable_layout, disable_orientation, disable_unwarp)
+    if _ocr_pipeline is None or _ocr_pipeline_key != key:
+        _ocr_pipeline = _build_pipeline(
+            device=device,
+            disable_layout=disable_layout,
+            disable_orientation=disable_orientation,
+            disable_unwarp=disable_unwarp,
+        )
+        _ocr_pipeline_key = key
+    return _ocr_pipeline
+
+
+def release_ocr_runtime(drop_pipeline: bool = False) -> None:
+    """
+    OCR 작업 종료 후 GPU 캐시를 비워 메모리 누적을 완화한다.
+    """
+    global _ocr_pipeline, _ocr_pipeline_key
+    if drop_pipeline:
+        try:
+            _ocr_pipeline = None
+            _ocr_pipeline_key = None
+        except Exception:
+            pass
+
+    try:
+        gc.collect()
+    except Exception:
+        pass
+
+    try:
+        import paddle
+
+        if paddle.is_compiled_with_cuda():
+            paddle.device.cuda.empty_cache()
+    except Exception:
+        # paddle 버전/환경 차이로 비우기 실패해도 작업에는 영향 없게 처리
+        pass
+
+
 def run_ocr_on_crops(
     crops: list[dict[str, Any]],
     output_dir: str | Path,
@@ -74,17 +147,25 @@ def run_ocr_on_crops(
     if not crops:
         return payload
 
-    PaddleOCRVL = _import_paddleocr_vl()
-    pipeline = PaddleOCRVL(
-        device=device,
-        use_layout_detection=not disable_layout,
-        use_doc_orientation_classify=not disable_orientation,
-        use_doc_unwarping=not disable_unwarp,
-    )
+    if settings.OCR_REUSE_PIPELINE:
+        pipeline = _get_pipeline(
+            device=device,
+            disable_layout=disable_layout,
+            disable_orientation=disable_orientation,
+            disable_unwarp=disable_unwarp,
+        )
+    else:
+        pipeline = _build_pipeline(
+            device=device,
+            disable_layout=disable_layout,
+            disable_orientation=disable_orientation,
+            disable_unwarp=disable_unwarp,
+        )
 
     for crop in crops:
         det_index = crop.get("det_index")
         crop_path = Path(str(crop.get("crop_path", ""))).expanduser().resolve()
+        _debug(f"[ocr] crop_start det_index={det_index} path={crop_path}")
 
         item: dict[str, Any] = {
             "det_index": det_index,
@@ -123,12 +204,22 @@ def run_ocr_on_crops(
                 item["pages"].append(page_payload)
 
             payload["ok"] += 1
+            _debug(
+                f"[ocr] crop_done det_index={det_index} results={item['num_results']}"
+            )
         except Exception as e:
             item["status"] = "fail"
             item["error"] = repr(e)
             payload["fail"] += 1
+            print(f"[WARN] ocr crop_failed det_index={det_index} error={e}")
 
         payload["items"].append(item)
+
+    if not settings.OCR_REUSE_PIPELINE:
+        try:
+            del pipeline
+        except Exception:
+            pass
 
     if payload["fail"] == 0:
         payload["status"] = "ok"
