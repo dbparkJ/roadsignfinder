@@ -12,3 +12,7 @@ __pycache__/
 test_file/
 
 token.txt
+
+*.json
+
+*.zip
