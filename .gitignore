@@ -16,3 +16,10 @@ token.txt
 *.json
 
 *.zip
+
+# Local OCR benchmarking artifacts
+ocr_test/benchmark_worker_options.py
+ocr_test/benchmarks/
+
+# Local reference spreadsheet
+도로대장_표지코드정리_V.1.0.6.xlsx

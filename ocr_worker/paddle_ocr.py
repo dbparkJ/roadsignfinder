@@ -56,6 +56,45 @@ def _load_json(path: Path) -> dict[str, Any] | list[Any] | Any:
         return json.load(fp)
 
 
+def _safe_output_token(value: Any, fallback: str) -> str:
+    token = str(value or "").strip() or fallback
+    sanitized = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in token)
+    sanitized = sanitized.strip("_")
+    return sanitized or fallback
+
+
+def _collect_detected_texts(value: Any, texts: list[str]) -> None:
+    if isinstance(value, dict):
+        content = value.get("block_content")
+        if isinstance(content, str):
+            text = content.strip()
+            if text:
+                texts.append(text)
+        for nested in value.values():
+            _collect_detected_texts(nested, texts)
+        return
+
+    if isinstance(value, list):
+        for nested in value:
+            _collect_detected_texts(nested, texts)
+
+
+def _extract_page_texts(json_values: list[Any]) -> list[str]:
+    texts: list[str] = []
+    for value in json_values:
+        if isinstance(value, dict):
+            parsed = value.get("parsing_res_list")
+            if isinstance(parsed, list):
+                _collect_detected_texts(parsed, texts)
+    unique: list[str] = []
+    seen: set[str] = set()
+    for text in texts:
+        if text not in seen:
+            seen.add(text)
+            unique.append(text)
+    return unique
+
+
 def _build_pipeline(
     device: str,
     disable_layout: bool,
@@ -166,17 +205,36 @@ def run_ocr_on_crops(
         det_index = crop.get("det_index")
         crop_path = Path(str(crop.get("crop_path", ""))).expanduser().resolve()
         _debug(f"[ocr] crop_start det_index={det_index} path={crop_path}")
+        try:
+            default_group = f"det_{int(det_index):03d}"
+        except Exception:
+            default_group = crop_path.stem or "det"
+        output_group = _safe_output_token(crop.get("ocr_debug_group"), default_group)
+        output_variant = _safe_output_token(crop.get("ocr_debug_variant"), "base")
 
         item: dict[str, Any] = {
             "det_index": det_index,
             "crop_path": str(crop_path),
+            "source_crop_path": crop.get("source_crop_path"),
             "bbox_xyxy": crop.get("bbox_xyxy"),
             "class_id": crop.get("class_id"),
             "class_name": crop.get("class_name"),
             "confidence": crop.get("confidence"),
+            "ocr_target": crop.get("ocr_target"),
+            "ocr_category": crop.get("ocr_category"),
+            "ocr_shape": crop.get("ocr_shape"),
+            "ocr_policy_source": crop.get("ocr_policy_source"),
+            "ocr_preprocess": crop.get("ocr_preprocess"),
+            "ocr_preprocess_size": crop.get("ocr_preprocess_size"),
+            "ocr_debug_group": crop.get("ocr_debug_group"),
+            "ocr_debug_variant": crop.get("ocr_debug_variant"),
+            "ocr_debug_padding_px": crop.get("ocr_debug_padding_px"),
             "status": "ok",
             "error": None,
             "num_results": 0,
+            "detected_texts": [],
+            "detected_text": "",
+            "detected_text_count": 0,
             "pages": [],
         }
 
@@ -185,7 +243,7 @@ def run_ocr_on_crops(
             item["num_results"] = len(results)
 
             for r_i, res in enumerate(results):
-                page_dir = out_root / f"det_{int(det_index):03d}" / f"page_{r_i:03d}"
+                page_dir = out_root / output_group / output_variant / f"page_{r_i:03d}"
                 page_dir.mkdir(parents=True, exist_ok=True)
 
                 before = {p.resolve() for p in page_dir.glob("*.json")}
@@ -201,8 +259,17 @@ def run_ocr_on_crops(
                     "json_files": [str(p.resolve()) for p in json_files],
                     "json_values": [_load_json(p) for p in json_files],
                 }
+                page_payload["detected_texts"] = _extract_page_texts(page_payload["json_values"])
                 item["pages"].append(page_payload)
 
+            detected_texts: list[str] = []
+            for page in item["pages"]:
+                for text in page.get("detected_texts") or []:
+                    if text not in detected_texts:
+                        detected_texts.append(text)
+            item["detected_texts"] = detected_texts
+            item["detected_text"] = " | ".join(detected_texts)
+            item["detected_text_count"] = len(detected_texts)
             payload["ok"] += 1
             _debug(
                 f"[ocr] crop_done det_index={det_index} results={item['num_results']}"

@@ -71,6 +71,15 @@ def run_sam3(
             except Exception as e:
                 raise RuntimeError(f"minio object not found: {bucket}/{object_key} ({e})") from e
             client.fget_object(bucket, object_key, tmp_file)
+        elif not os.path.exists(tmp_file):
+            _debug(f"[pole_type] reuse_tmp_missing_redownload={tmp_file}")
+            try:
+                client.stat_object(bucket, object_key)
+            except S3Error as e:
+                raise RuntimeError(f"minio stat failed: {bucket}/{object_key} ({e})") from e
+            except Exception as e:
+                raise RuntimeError(f"minio object not found: {bucket}/{object_key} ({e})") from e
+            client.fget_object(bucket, object_key, tmp_file)
         if not os.path.exists(tmp_file):
             raise RuntimeError(f"downloaded file missing: {tmp_file}")
         t1 = time.perf_counter()

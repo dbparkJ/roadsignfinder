@@ -33,6 +33,7 @@ def _callback(payload: dict):
         "Content-Type": "application/json",
         "x-inference-token": settings.CALLBACK_TOKEN,
     }
+    cleanup_tmp = True
     try:
         resp = requests.post(
             settings.CALLBACK_URL,
@@ -204,7 +205,18 @@ def run_inference(
             client.make_bucket(result_bucket)
 
         _debug(f"[inference] stage=model_start job_id={job_id}")
-        result, annotated_path = run_inference_on_file(tmp_file, job_id, photo_id, rdid, img_x, img_y)
+        crop_source_path = str(
+            Path(settings.CROP_TMP_DIR) / job_id / f"{_safe_token(Path(object_key).stem)}_nafnet.jpg"
+        )
+        result, annotated_path, crop_source_image_path = run_inference_on_file(
+            tmp_file,
+            job_id,
+            photo_id,
+            rdid,
+            img_x,
+            img_y,
+            crop_source_path=crop_source_path,
+        )
         _debug(f"[inference] stage=model_done job_id={job_id}")
         no_detections = result.get("no_detections")
         if no_detections is False:
@@ -242,7 +254,7 @@ def run_inference(
         if not no_detections:
             crops_root = Path(settings.CROP_TMP_DIR) / job_id
             crop_items = _build_yolo_crops(
-                tmp_file,
+                crop_source_image_path or tmp_file,
                 result.get("boxes") or [],
                 crops_root,
                 source_stem=Path(object_key).stem,
