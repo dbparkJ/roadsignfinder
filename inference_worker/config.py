@@ -25,7 +25,7 @@ class Settings(BaseModel):
     TMP_DIR: str = os.getenv("INFERENCE_TMP_DIR", "/tmp")
     CROP_TMP_DIR: str = os.getenv("CROP_TMP_DIR", "/tmp/inference_crop")
     MODEL_NAME: str = os.getenv("MODEL_NAME", "yolo-seg")
-    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geon_lab/doje/final_project/seongbin/roadsignfinder/l_model/weights/best.pt")
+    MODEL_PATH: str = os.getenv("MODEL_PATH", "/home/geon_lab/AI_CHOI/roadsign_ver3/runs/segment/roadsignfinder_ver3.0/l_model/weights/best.pt")
 
 
 settings = Settings()

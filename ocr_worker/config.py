@@ -28,6 +28,12 @@ class Settings(BaseModel):
     OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "false").lower() == "true"
     OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "false").lower() == "true"
     OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "false").lower() == "true"
+    OCR_SMALL_CROP_DOUBLE_EDGE_THRESHOLD: int = int(os.getenv("OCR_SMALL_CROP_DOUBLE_EDGE_THRESHOLD", "200"))
+    OCR_SMALL_CROP_DOUBLE_SCALE: float = float(os.getenv("OCR_SMALL_CROP_DOUBLE_SCALE", "2.0"))
+    OCR_DEBUG_VARIANTS_ENABLED: bool = os.getenv("OCR_DEBUG_VARIANTS_ENABLED", "false").lower() == "true"
+    OCR_DEBUG_VARIANT_COUNT: int = int(os.getenv("OCR_DEBUG_VARIANT_COUNT", "3"))
+    OCR_DEBUG_VARIANT_PAD_STEP_PX: int = int(os.getenv("OCR_DEBUG_VARIANT_PAD_STEP_PX", "3"))
+    OCR_DEBUG_DIR: str = os.getenv("OCR_DEBUG_DIR", "/tmp/ocr_worker_debug")
     OCR_WORKER_CONCURRENCY: int = int(os.getenv("OCR_WORKER_CONCURRENCY", "1"))
     OCR_WORKER_PREFETCH_MULTIPLIER: int = int(os.getenv("OCR_WORKER_PREFETCH_MULTIPLIER", "1"))
     # 0 or negative means disabled (do not recycle child process by task count).

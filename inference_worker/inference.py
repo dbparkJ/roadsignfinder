@@ -25,10 +25,30 @@ def _get_model():
     return _model
 
 
-def run_inference_on_file(image_path: str, job_id: str, photo_id: str, rdid: str, img_x: float, img_y: float):
+def _save_crop_source_image(image: Image.Image, crop_source_path: str | None) -> str | None:
+    if not crop_source_path:
+        return None
+    out_path = os.path.abspath(os.path.expanduser(crop_source_path))
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    save_image = image.convert("RGB") if image.mode != "RGB" else image
+    save_image.save(out_path, format="JPEG", quality=95)
+    return out_path
+
+
+def run_inference_on_file(
+    image_path: str,
+    job_id: str,
+    photo_id: str,
+    rdid: str,
+    img_x: float,
+    img_y: float,
+    crop_source_path: str | None = None,
+):
     """
     이미지 파일 경로를 입력으로 받아 YOLO 세그먼트 추론을 수행하고
-    결과 딕셔너리와 주석 이미지를 저장한 로컬 경로(없으면 None)를 반환한다.
+    결과 딕셔너리, 주석 이미지 경로, crop 생성에 사용할 입력 이미지 경로를 반환한다.
     """
     t0 = time.perf_counter()
     predictor = _get_model()
@@ -85,10 +105,18 @@ def run_inference_on_file(image_path: str, job_id: str, photo_id: str, rdid: str
     result["no_detections"] = no_detections
 
     annotated_path = None
+    used_crop_source_path = image_path
     if not no_detections:
         os.makedirs(settings.TMP_DIR, exist_ok=True)
         annotated_path = os.path.join(settings.TMP_DIR, f"{job_id}_pred.jpg")
         pred.save(filename=annotated_path)
+        try:
+            saved_crop_source = _save_crop_source_image(image, crop_source_path)
+            if saved_crop_source:
+                used_crop_source_path = saved_crop_source
+                _debug(f"[inference] crop_source_saved path={used_crop_source_path}")
+        except Exception as e:
+            _debug(f"[inference] crop_source_save_failed error={e}")
 
     result["finished_at"] = datetime.now(timezone.utc).isoformat()
-    return result, annotated_path
+    return result, annotated_path, used_crop_source_path

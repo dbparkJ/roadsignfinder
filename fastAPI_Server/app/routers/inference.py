@@ -25,6 +25,7 @@ from ..utils.inference import (
     build_selected_yolo_payload,
     mask_bbox,
 )
+from ..ocr_policy import build_ocr_queue_items
 
 router = APIRouter(tags=["inference"])
 
@@ -127,9 +128,32 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                     if not isinstance(merged.get("pole_type"), dict):
                         enqueue_pole_type = True
                     crop_items = data.result_json.get("crop_images") if isinstance(data.result_json, dict) else None
+                    masks = data.result_json.get("masks") if isinstance(data.result_json, dict) else None
                     if isinstance(crop_items, list) and crop_items and not isinstance(merged.get("ocr"), dict):
-                        enqueue_ocr = True
-                        enqueue_crop_items = crop_items
+                        queue_items = build_ocr_queue_items(crop_items, masks)
+                        target_items = [item for item in queue_items if item.get("ocr_target")]
+                        if target_items:
+                            enqueue_ocr = True
+                            enqueue_crop_items = target_items
+                        else:
+                            merged["ocr"] = {
+                                "status": "done",
+                                "result_json": {
+                                    "status": "skipped",
+                                    "reason": "no_ocr_target_crops",
+                                    "total": len(queue_items),
+                                    "selected": 0,
+                                },
+                                "error_message": None,
+                                "size_bytes": None,
+                                "started_at": now.isoformat(),
+                                "finished_at": now.isoformat(),
+                                "updated_at": now.isoformat(),
+                            }
+                            job.result_json = merged
+                            job.status = resolve_inference_status(job.result_json, fallback=job.status) or job.status
+                            if job.status in ("done", "failed"):
+                                job.finished_at = now
                     elif not isinstance(merged.get("ocr"), dict):
                         merged["ocr"] = {
                             "status": "done",
