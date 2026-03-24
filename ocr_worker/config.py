@@ -25,9 +25,9 @@ class Settings(BaseModel):
     OCR_OUTPUT_DIR: str = os.getenv("OCR_OUTPUT_DIR", "/tmp/paddleocr_output")
     OCR_DEVICE: str = os.getenv("OCR_DEVICE", "gpu:0")
     OCR_USE_QUEUES: bool = os.getenv("OCR_USE_QUEUES", "false").lower() == "true"
-    OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "false").lower() == "true"
-    OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "false").lower() == "true"
-    OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "false").lower() == "true"
+    OCR_DISABLE_LAYOUT: bool = os.getenv("OCR_DISABLE_LAYOUT", "true").lower() == "true"
+    OCR_DISABLE_ORIENTATION: bool = os.getenv("OCR_DISABLE_ORIENTATION", "true").lower() == "true"
+    OCR_DISABLE_UNWARP: bool = os.getenv("OCR_DISABLE_UNWARP", "true").lower() == "true"
     OCR_SMALL_CROP_DOUBLE_EDGE_THRESHOLD: int = int(os.getenv("OCR_SMALL_CROP_DOUBLE_EDGE_THRESHOLD", "200"))
     OCR_SMALL_CROP_DOUBLE_SCALE: float = float(os.getenv("OCR_SMALL_CROP_DOUBLE_SCALE", "2.0"))
     OCR_DEBUG_VARIANTS_ENABLED: bool = os.getenv("OCR_DEBUG_VARIANTS_ENABLED", "false").lower() == "true"
