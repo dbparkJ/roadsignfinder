@@ -182,6 +182,21 @@ class ErrorLog(Base):
     stacktrace: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=sql_text("now()"))
 
+
+class ClassCorrection(Base):
+    __tablename__ = "class_corrections"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=sql_text("gen_random_uuid()"),
+    )
+    photo_name: Mapped[str] = mapped_column(Text, nullable=False)
+    class_name: Mapped[str] = mapped_column(String, nullable=False)
+    rdid: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=sql_text("now()"))
+
+
 class PoleTypeDebugLog(Base):
     __tablename__ = "pole_type_debug_logs"
 

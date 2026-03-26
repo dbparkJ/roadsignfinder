@@ -107,3 +107,17 @@ class OcrCallbackIn(BaseModel):
     result_json: dict | None = None
     error_message: str | None = None
     size_bytes: int | None = None
+
+
+class ClassCorrectionCreateIn(BaseModel):
+    photo_name: str
+    class_name: str
+    rdid: str
+
+
+class ClassCorrectionOut(BaseModel):
+    id: str
+    photo_name: str
+    class_name: str
+    rdid: str
+    created_at: datetime

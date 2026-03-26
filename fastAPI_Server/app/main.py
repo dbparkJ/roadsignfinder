@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 
 from .core.db import Base, engine
 from .core.storage import minio_client, MINIO_BUCKET
-from .routers import auth, health, photos, inference, pole_type, ocr
+from .routers import auth, health, photos, inference, pole_type, ocr, class_corrections
 from .services.upload import log_error
 
 print("### LOADED app.main ###")
@@ -18,6 +18,7 @@ app.include_router(photos.router)
 app.include_router(inference.router)
 app.include_router(pole_type.router)
 app.include_router(ocr.router)
+app.include_router(class_corrections.router)
 
 
 @app.on_event("startup")
