@@ -91,6 +91,7 @@ def select_best_bbox_match(
     items: list,
     target_bbox: tuple[float, float, float, float] | None,
     bbox_getter,
+    min_iou: float | None = None,
 ):
     if not isinstance(items, list) or target_bbox is None:
         return None
@@ -103,6 +104,8 @@ def select_best_bbox_match(
         if candidate is None:
             continue
         iou = bbox_iou(target_bbox, candidate)
+        if min_iou is not None and iou < min_iou:
+            continue
         dist = bbox_center_distance_sq(target_cx, target_cy, candidate)
         score = (iou, -dist)
         if best is None or score > best[0]:
@@ -278,6 +281,7 @@ def compact_inference_result_json(result_json: dict | None) -> dict | None:
                 items,
                 target_bbox,
                 lambda item: normalize_bbox(item.get("bbox_xyxy")) if isinstance(item, dict) else None,
+                min_iou=1e-6,
             )
             items = [best_item] if best_item is not None else []
         compacted = {
