@@ -2,27 +2,33 @@ import uuid
 import traceback
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.db import SessionLocal, get_db
 from ..core.storage import MINIO_BUCKET
 from ..models import ClassCorrection
-from ..schemas import ClassCorrectionCallbackIn, ClassCorrectionOut
+from ..schemas import ClassCorrectionCallbackIn, ClassCorrectionCreateIn, ClassCorrectionOut
 from ..services.class_corrections import (
+    confirm_unmatched_correction_upload,
     find_photo_by_rdid,
     latest_inference_for_photo,
     load_detection_payloads,
+    prepare_unmatched_correction_upload,
     schedule_correction_worker,
-    upload_unmatched_correction_file,
 )
 from ..services.upload import log_error
 
 router = APIRouter(tags=["class_corrections"])
 
 
-def _to_out(correction: ClassCorrection) -> ClassCorrectionOut:
+def _to_out(
+    correction: ClassCorrection,
+    *,
+    upload_url: str | None = None,
+    expires_in: int | None = None,
+) -> ClassCorrectionOut:
     return ClassCorrectionOut(
         id=str(correction.id),
         photo_name=correction.photo_name,
@@ -40,6 +46,8 @@ def _to_out(correction: ClassCorrection) -> ClassCorrectionOut:
         status=correction.status,
         error_message=correction.error_message,
         result_json=correction.result_json,
+        upload_url=upload_url,
+        expires_in=expires_in,
         created_at=correction.created_at,
         updated_at=correction.updated_at,
         started_at=correction.started_at,
@@ -49,16 +57,13 @@ def _to_out(correction: ClassCorrection) -> ClassCorrectionOut:
 
 @router.post("/class-corrections", response_model=ClassCorrectionOut, status_code=201)
 async def create_class_correction(
+    data: ClassCorrectionCreateIn,
     request: Request,
-    photo_name: str = Form(...),
-    class_name: str = Form(...),
-    rdid: str = Form(...),
-    file: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    photo_name = photo_name.strip()
-    class_name = class_name.strip()
-    rdid = rdid.strip()
+    photo_name = data.photo_name.strip()
+    class_name = data.class_name.strip()
+    rdid = data.rdid.strip()
 
     if not photo_name:
         raise HTTPException(status_code=400, detail="photo_name is required")
@@ -92,15 +97,28 @@ async def create_class_correction(
         await db.refresh(correction)
         return _to_out(correction)
 
-    if file is None:
-        correction.status = "failed"
-        correction.error_message = "file is required when no photo exists for the given rdid"
-        await db.commit()
-        raise HTTPException(status_code=400, detail=correction.error_message)
-
-    await upload_unmatched_correction_file(
+    upload_url, expires_in = await prepare_unmatched_correction_upload(
         correction,
-        file,
+        data.content_type,
+        db,
+        method=request.method,
+    )
+    await db.refresh(correction)
+    return _to_out(correction, upload_url=upload_url, expires_in=expires_in)
+
+
+@router.post("/class-corrections/{correction_id}/upload-complete", response_model=ClassCorrectionOut)
+async def complete_class_correction_upload(
+    correction_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    correction = await db.get(ClassCorrection, correction_id)
+    if not correction:
+        raise HTTPException(status_code=404, detail="class correction not found")
+
+    await confirm_unmatched_correction_upload(
+        correction,
         db,
         method=request.method,
     )

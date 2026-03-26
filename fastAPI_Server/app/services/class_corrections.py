@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import traceback
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
 from minio.error import S3Error
 from sqlalchemy import select
@@ -134,51 +135,95 @@ async def mark_correction_failed(
     )
 
 
-async def upload_unmatched_correction_file(
+async def prepare_unmatched_correction_upload(
     correction: ClassCorrection,
-    file: UploadFile,
+    content_type: str | None,
     db: AsyncSession,
     *,
     method: str | None,
-) -> None:
+) -> tuple[str, int]:
     object_key = build_correction_image_object_key(correction.id, correction.photo_name, correction.rdid)
-    content_type = file.content_type or "application/octet-stream"
+    resolved_content_type = content_type or "application/octet-stream"
+    expires_in = 600
 
     try:
         await ensure_correction_bucket()
-        await run_in_threadpool(file.file.seek, 0)
-        await run_in_threadpool(
-            minio_client.put_object,
+        upload_url = await run_in_threadpool(
+            minio_client.presigned_put_object,
             settings.CLASS_CORRECTION_BUCKET,
             object_key,
-            file.file,
-            -1,
-            10 * 1024 * 1024,
-            content_type=content_type,
+            expires=timedelta(seconds=expires_in),
         )
     except S3Error as e:
         await mark_correction_failed(
             correction,
             db,
-            path="class_corrections:upload_unmatched",
+            path="class_corrections:presign_unmatched",
             method=method,
-            message=f"MinIO upload failed: {e.code}",
+            message=f"MinIO presign failed: {e.code}",
             stacktrace=traceback.format_exc(),
         )
-        raise HTTPException(status_code=502, detail=f"correction image upload failed: {e.code}") from e
+        raise HTTPException(status_code=502, detail=f"correction image presign failed: {e.code}") from e
     except Exception as e:
         await mark_correction_failed(
             correction,
             db,
-            path="class_corrections:upload_unmatched",
+            path="class_corrections:presign_unmatched",
             method=method,
             message=str(e),
             stacktrace=traceback.format_exc(),
         )
-        raise HTTPException(status_code=502, detail="correction image upload failed") from e
+        raise HTTPException(status_code=502, detail="correction image presign failed") from e
 
     correction.upload_bucket = settings.CLASS_CORRECTION_BUCKET
     correction.upload_image_object_key = object_key
+    correction.status = "upload_required"
+    correction.error_message = None
+    if correction.result_json is None:
+        correction.result_json = {}
+    correction.result_json["content_type"] = resolved_content_type
+    await db.commit()
+    return upload_url, expires_in
+
+
+async def confirm_unmatched_correction_upload(
+    correction: ClassCorrection,
+    db: AsyncSession,
+    *,
+    method: str | None,
+) -> None:
+    if not correction.upload_bucket or not correction.upload_image_object_key:
+        raise HTTPException(status_code=400, detail="no pending upload target for this correction")
+
+    try:
+        await run_in_threadpool(
+            minio_client.stat_object,
+            correction.upload_bucket,
+            correction.upload_image_object_key,
+        )
+    except S3Error as e:
+        if e.code == "NoSuchKey":
+            raise HTTPException(status_code=404, detail="uploaded file not found in MinIO") from e
+        await mark_correction_failed(
+            correction,
+            db,
+            path="class_corrections:confirm_upload",
+            method=method,
+            message=f"MinIO stat failed: {e.code}",
+            stacktrace=traceback.format_exc(),
+        )
+        raise HTTPException(status_code=502, detail=f"failed to verify uploaded file: {e.code}") from e
+    except Exception as e:
+        await mark_correction_failed(
+            correction,
+            db,
+            path="class_corrections:confirm_upload",
+            method=method,
+            message=str(e),
+            stacktrace=traceback.format_exc(),
+        )
+        raise HTTPException(status_code=502, detail="failed to verify uploaded file") from e
+
     correction.status = "uploaded"
     correction.error_message = None
     await db.commit()

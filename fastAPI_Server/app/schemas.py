@@ -113,6 +113,7 @@ class ClassCorrectionCreateIn(BaseModel):
     photo_name: str
     class_name: str
     rdid: str
+    content_type: str | None = None
 
 
 class ClassCorrectionOut(BaseModel):
@@ -132,6 +133,8 @@ class ClassCorrectionOut(BaseModel):
     status: str
     error_message: str | None = None
     result_json: dict | None = None
+    upload_url: str | None = None
+    expires_in: int | None = None
     created_at: datetime
     updated_at: datetime
     started_at: datetime | None = None

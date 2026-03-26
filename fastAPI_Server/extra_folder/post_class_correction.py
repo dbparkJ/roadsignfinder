@@ -2,10 +2,11 @@
 class_corrections POST 테스트 스크립트.
 
 1. RDID로 기존 photo를 찾을 수 있으면:
-   photo_name, class_name, rdid만 보내도 worker가 큐에 등록됩니다.
+   JSON 메타데이터만 보내면 worker가 큐에 등록됩니다.
 
 2. RDID로 기존 photo를 찾지 못할 수 있으면:
-   같은 요청에 file도 함께 보내면 새 correction bucket으로 업로드됩니다.
+   서버가 presigned URL을 응답하고, 그 URL로 MinIO에 직접 PUT 하면 됩니다.
+   이 스크립트는 FILE_PATH가 있으면 PUT 후 upload-complete까지 호출합니다.
 
 실행 예:
   API_BASE=http://localhost:8000 \
@@ -37,35 +38,24 @@ FILE_PATH = os.getenv("CORRECTION_FILE_PATH", "").strip()
 
 
 def main():
-    data = {
+    payload = {
         "photo_name": PHOTO_NAME,
         "class_name": CLASS_NAME,
         "rdid": RDID,
+        "content_type": mimetypes.guess_type(FILE_PATH)[0] if FILE_PATH else None,
     }
 
-    files = None
-    file_handle = None
-    if FILE_PATH:
-        if not os.path.isfile(FILE_PATH):
-            raise SystemExit(f"[FAIL] CORRECTION_FILE_PATH가 유효하지 않습니다: {FILE_PATH}")
-        content_type = mimetypes.guess_type(FILE_PATH)[0] or "application/octet-stream"
-        file_handle = open(FILE_PATH, "rb")
-        files = {
-            "file": (os.path.basename(FILE_PATH), file_handle, content_type),
-        }
+    if FILE_PATH and not os.path.isfile(FILE_PATH):
+        raise SystemExit(f"[FAIL] CORRECTION_FILE_PATH가 유효하지 않습니다: {FILE_PATH}")
 
-    try:
-        response = requests.post(
-            f"{API_BASE}/class-corrections",
-            data=data,
-            files=files,
-            timeout=30,
-        )
-    finally:
-        if file_handle is not None:
-            file_handle.close()
+    response = requests.post(
+        f"{API_BASE}/class-corrections",
+        json=payload,
+        timeout=30,
+    )
 
     print(f"[INFO] status_code={response.status_code}")
+    body = None
     try:
         body = response.json()
         print(json.dumps(body, ensure_ascii=False, indent=2))
@@ -74,6 +64,36 @@ def main():
 
     if response.status_code != 201:
         raise SystemExit("[FAIL] class correction 등록 실패")
+
+    upload_url = body.get("upload_url") if isinstance(body, dict) else None
+    correction_id = body.get("id") if isinstance(body, dict) else None
+    if upload_url:
+        if not FILE_PATH:
+            raise SystemExit("[FAIL] presigned upload_url이 내려왔지만 CORRECTION_FILE_PATH가 없습니다.")
+        content_type = mimetypes.guess_type(FILE_PATH)[0] or "application/octet-stream"
+        with open(FILE_PATH, "rb") as file_obj:
+            upload_resp = requests.put(
+                upload_url,
+                data=file_obj,
+                headers={"Content-Type": content_type},
+                timeout=60,
+            )
+        print(f"[INFO] upload_status_code={upload_resp.status_code}")
+        if upload_resp.status_code not in (200, 204):
+            raise SystemExit(f"[FAIL] presigned 업로드 실패: {upload_resp.status_code} {upload_resp.text}")
+
+        if correction_id:
+            confirm_resp = requests.post(
+                f"{API_BASE}/class-corrections/{correction_id}/upload-complete",
+                timeout=30,
+            )
+            print(f"[INFO] confirm_status_code={confirm_resp.status_code}")
+            try:
+                print(json.dumps(confirm_resp.json(), ensure_ascii=False, indent=2))
+            except Exception:
+                print(confirm_resp.text)
+            if confirm_resp.status_code != 200:
+                raise SystemExit("[FAIL] upload-complete 호출 실패")
 
     print("[OK] class correction 등록 완료")
 
