@@ -34,3 +34,14 @@ ocr_celery_app.conf.update(
     accept_content=["json"],
     task_default_queue="ocr",
 )
+
+sam3_correction_celery_app = Celery(
+    "sam3_correction_worker",
+    broker=settings.SAM3_CORRECTION_CELERY_BROKER_URL,
+)
+sam3_correction_celery_app.conf.update(
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    task_default_queue="sam3_correction",
+)

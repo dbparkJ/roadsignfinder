@@ -3,6 +3,7 @@ import traceback
 
 from fastapi import FastAPI, HTTPException, Request
 
+from .core.config import settings
 from .core.db import Base, engine
 from .core.storage import minio_client, MINIO_BUCKET
 from .routers import auth, health, photos, inference, pole_type, ocr, class_corrections
@@ -30,6 +31,9 @@ async def startup():
         if not minio_client.bucket_exists(MINIO_BUCKET):
             minio_client.make_bucket(MINIO_BUCKET)
             print(f"[OK] Created bucket: {MINIO_BUCKET}")
+        if not minio_client.bucket_exists(settings.CLASS_CORRECTION_BUCKET):
+            minio_client.make_bucket(settings.CLASS_CORRECTION_BUCKET)
+            print(f"[OK] Created bucket: {settings.CLASS_CORRECTION_BUCKET}")
     except Exception as e:
         print(f"[WARN] MinIO bucket check/create failed: {e}")
 

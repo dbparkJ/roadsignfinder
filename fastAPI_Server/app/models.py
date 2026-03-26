@@ -194,7 +194,34 @@ class ClassCorrection(Base):
     photo_name: Mapped[str] = mapped_column(Text, nullable=False)
     class_name: Mapped[str] = mapped_column(String, nullable=False)
     rdid: Mapped[str] = mapped_column(String, nullable=False)
+    photo_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("photos.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    inference_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inference_results.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    img_x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    img_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_bucket: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    upload_bucket: Mapped[str | None] = mapped_column(String, nullable=True)
+    upload_image_object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    upload_label_object_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default=sql_text("'received'::text"))
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    result_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=sql_text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=sql_text("now()"),
+        onupdate=sql_text("now()"),
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class PoleTypeDebugLog(Base):

@@ -120,4 +120,29 @@ class ClassCorrectionOut(BaseModel):
     photo_name: str
     class_name: str
     rdid: str
+    photo_id: str | None = None
+    inference_job_id: str | None = None
+    img_x: float | None = None
+    img_y: float | None = None
+    source_bucket: str | None = None
+    source_object_key: str | None = None
+    upload_bucket: str | None = None
+    upload_image_object_key: str | None = None
+    upload_label_object_key: str | None = None
+    status: str
+    error_message: str | None = None
+    result_json: dict | None = None
     created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class ClassCorrectionCallbackIn(BaseModel):
+    correction_id: str
+    status: str
+    upload_bucket: str | None = None
+    upload_image_object_key: str | None = None
+    upload_label_object_key: str | None = None
+    result_json: dict | None = None
+    error_message: str | None = None

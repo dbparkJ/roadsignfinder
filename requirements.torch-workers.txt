@@ -12,3 +12,4 @@ torch==2.7.1+cu126
 ultralytics
 transformers
 dghs-imgutils
+opencv-python
