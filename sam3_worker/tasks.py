@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import time
+import urllib3
 from pathlib import Path
 
 from minio import Minio
@@ -23,6 +24,13 @@ def _minio_client():
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
         secure=settings.MINIO_SECURE,
+        http_client=urllib3.PoolManager(
+            timeout=urllib3.Timeout(
+                connect=settings.MINIO_CONNECT_TIMEOUT,
+                read=settings.MINIO_READ_TIMEOUT,
+            ),
+            retries=False,
+        ),
     )
 
 

@@ -4,6 +4,7 @@ import json
 import math
 import traceback
 import requests
+import urllib3
 from minio import Minio
 from pathlib import Path
 from PIL import Image
@@ -25,6 +26,13 @@ def _minio_client():
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
         secure=settings.MINIO_SECURE,
+        http_client=urllib3.PoolManager(
+            timeout=urllib3.Timeout(
+                connect=settings.MINIO_CONNECT_TIMEOUT,
+                read=settings.MINIO_READ_TIMEOUT,
+            ),
+            retries=False,
+        ),
     )
 
 

@@ -1,7 +1,9 @@
 # app/main.py
+import asyncio
 import traceback
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 
 from .core.db import Base, engine
 from .core.storage import minio_client, MINIO_BUCKET
@@ -26,8 +28,15 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
 
     try:
-        if not minio_client.bucket_exists(MINIO_BUCKET):
-            minio_client.make_bucket(MINIO_BUCKET)
+        bucket_exists = await asyncio.wait_for(
+            run_in_threadpool(minio_client.bucket_exists, MINIO_BUCKET),
+            timeout=7,
+        )
+        if not bucket_exists:
+            await asyncio.wait_for(
+                run_in_threadpool(minio_client.make_bucket, MINIO_BUCKET),
+                timeout=7,
+            )
             print(f"[OK] Created bucket: {MINIO_BUCKET}")
     except Exception as e:
         print(f"[WARN] MinIO bucket check/create failed: {e}")

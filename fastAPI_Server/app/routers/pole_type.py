@@ -10,7 +10,11 @@ from ..core.config import settings
 from ..core.db import get_db, SessionLocal
 from ..models import InferenceResult, PoleTypeDebugLog, PoleTypeResultCache, UploadSession
 from ..schemas import PoleTypeResultOut, PoleTypeCallbackIn
-from ..services.upload import log_error, update_upload_session_status, resolve_inference_status
+from ..services.upload import (
+    log_error,
+    resolve_inference_status,
+    update_upload_sessions_status_by_job,
+)
 
 router = APIRouter(tags=["pole_type"])
 
@@ -74,10 +78,7 @@ async def pole_type_callback(data: PoleTypeCallbackIn, request: Request):
                         )
                     )
 
-                us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
-                upload_session = us.scalar_one_or_none()
-                if upload_session:
-                    await update_upload_session_status(upload_session, db)
+                await update_upload_sessions_status_by_job(job.id, db)
     except HTTPException:
         raise
     except Exception as e:
@@ -143,12 +144,12 @@ async def get_pole_type_result_generic(
         q = await db.execute(
             select(InferenceResult).where(InferenceResult.photo_id == photo_id).order_by(InferenceResult.created_at.desc())
         )
-        job = q.scalar_one_or_none()
+        job = q.scalars().first()
     elif rdid:
         q = await db.execute(
             select(InferenceResult).where(InferenceResult.rdid == rdid).order_by(InferenceResult.created_at.desc())
         )
-        job = q.scalar_one_or_none()
+        job = q.scalars().first()
 
     if not job:
         raise HTTPException(status_code=404, detail="inference job not found")

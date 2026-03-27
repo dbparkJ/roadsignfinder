@@ -116,6 +116,19 @@ async def update_upload_session_status(
         upload_session.status = "processing"
 
 
+async def update_upload_sessions_status_by_job(
+    job_id: uuid.UUID,
+    db: AsyncSession,
+) -> None:
+    result = await db.execute(
+        select(UploadSession)
+        .where(UploadSession.job_id == job_id)
+        .order_by(UploadSession.updated_at.desc(), UploadSession.created_at.desc())
+    )
+    for upload_session in result.scalars().all():
+        await update_upload_session_status(upload_session, db)
+
+
 async def schedule_inference(photo: Photo, db: AsyncSession) -> InferenceResult:
     result_bucket = settings.INFERENCE_BUCKET
     result_prefix = inference_prefix(photo.member_id)
@@ -355,7 +368,7 @@ async def register_uploaded_photo(session_id, member_id, object_key, original_fi
                             .where(InferenceResult.photo_id == photo.id)
                             .order_by(InferenceResult.created_at.desc())
                         )
-                        existing_job = q.scalar_one_or_none()
+                        existing_job = q.scalars().first()
                         if existing_job:
                             upload_session.job_id = existing_job.id
 

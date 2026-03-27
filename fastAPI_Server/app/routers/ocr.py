@@ -12,8 +12,8 @@ from ..models import InferenceResult, UploadSession
 from ..schemas import OcrCallbackIn
 from ..services.upload import (
     log_error,
-    update_upload_session_status,
     resolve_inference_status,
+    update_upload_sessions_status_by_job,
 )
 
 router = APIRouter(tags=["ocr"])
@@ -68,10 +68,7 @@ async def ocr_callback(data: OcrCallbackIn, request: Request):
                     job.finished_at = now
                 job.updated_at = now
 
-                us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
-                upload_session = us.scalar_one_or_none()
-                if upload_session:
-                    await update_upload_session_status(upload_session, db)
+                await update_upload_sessions_status_by_job(job.id, db)
     except HTTPException:
         raise
     except Exception as e:
