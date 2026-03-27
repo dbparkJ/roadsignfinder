@@ -177,7 +177,7 @@ async def upload_photo(
         job_q = await db.execute(
             select(InferenceResult).where(InferenceResult.photo_id == existing_photo.id).order_by(InferenceResult.created_at.desc())
         )
-        latest_job = job_q.scalar_one_or_none()
+        latest_job = job_q.scalars().first()
         yolo_cache = None
         if latest_job:
             yolo_q = await db.execute(
@@ -185,12 +185,12 @@ async def upload_photo(
                 .where(YoloResultCache.photo_id == existing_photo.id)
                 .order_by(YoloResultCache.created_at.desc())
             )
-            yolo_cache = yolo_q.scalar_one_or_none()
+            yolo_cache = yolo_q.scalars().first()
 
         pole_q = await db.execute(
             select(PoleTypeResultCache).where(PoleTypeResultCache.photo_id == existing_photo.id).order_by(PoleTypeResultCache.created_at.desc())
         )
-        pole_cache = pole_q.scalar_one_or_none()
+        pole_cache = pole_q.scalars().first()
 
         inference_payload = None
         if latest_job:

@@ -1,4 +1,5 @@
 import os
+from contextlib import nullcontext
 from datetime import datetime, timezone
 
 import numpy as np
@@ -20,6 +21,16 @@ def _debug(msg: str) -> None:
     if settings.SAM3_DEBUG_LOG:
         print(msg)
 
+
+def _sam3_fp16_enabled() -> bool:
+    return settings.SAM3_USE_FP16 and DEVICE == "cuda"
+
+
+def _sam3_autocast():
+    if _sam3_fp16_enabled():
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    return nullcontext()
+
 LABEL_MAP = {
     1401: "단주식",
     1402: "복주식",
@@ -39,7 +50,7 @@ def _get_sam3():
     if _sam3_model is None or _sam3_processor is None:
         _sam3_model = Sam3Model.from_pretrained(settings.SAM3_MODEL_NAME).to(DEVICE)
         _sam3_processor = Sam3Processor.from_pretrained(settings.SAM3_MODEL_NAME)
-        if settings.SAM3_USE_FP16 and DEVICE == "cuda":
+        if _sam3_fp16_enabled():
             _sam3_model = _sam3_model.half()
     return _sam3_model, _sam3_processor
 
@@ -153,10 +164,11 @@ def _classify_pole_shape(sign_box, vert_union, horz_union):
 
 def _run_sam3_text(model, processor, image_pil, text):
     inputs = processor(images=image_pil, text=text, return_tensors="pt").to(DEVICE)
-    if settings.SAM3_USE_FP16 and DEVICE == "cuda":
+    if _sam3_fp16_enabled():
         inputs = {k: (v.half() if torch.is_tensor(v) and v.dtype.is_floating_point else v) for k, v in inputs.items()}
     with torch.no_grad():
-        outputs = model(**inputs)
+        with _sam3_autocast():
+            outputs = model(**inputs)
     results = processor.post_process_instance_segmentation(
         outputs,
         threshold=0.5,

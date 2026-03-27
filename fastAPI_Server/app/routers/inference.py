@@ -13,7 +13,7 @@ from ..models import InferenceResult, Photo, UploadSession, YoloResultCache, Inf
 from ..schemas import InferenceResultOut, InferenceCallbackIn
 from ..services.upload import (
     log_error,
-    update_upload_session_status,
+    update_upload_sessions_status_by_job,
     schedule_pole_type,
     schedule_ocr,
     resolve_inference_status,
@@ -84,9 +84,6 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                 if job.status in ("failed", "done"):
                     job.finished_at = now
                 job.updated_at = now
-                us = await db.execute(select(UploadSession).where(UploadSession.job_id == job.id))
-                upload_session = us.scalar_one_or_none()
-
                 if data.status == "done" and isinstance(data.result_json, dict):
                     db.add(
                         YoloResultCache(
@@ -168,8 +165,7 @@ async def inference_callback(data: InferenceCallbackIn, request: Request):
                         job.status = resolve_inference_status(job.result_json, fallback=job.status) or job.status
                         if job.status in ("done", "failed"):
                             job.finished_at = now
-                if upload_session:
-                    await update_upload_session_status(upload_session, db)
+                await update_upload_sessions_status_by_job(job.id, db)
         if enqueue_pole_type and enqueue_job_id and enqueue_photo_id:
             try:
                 async with SessionLocal() as db2:
@@ -321,12 +317,12 @@ async def get_inference_result_generic(
         q = await db.execute(
             select(InferenceResult).where(InferenceResult.photo_id == photo_id).order_by(InferenceResult.created_at.desc())
         )
-        job = q.scalar_one_or_none()
+        job = q.scalars().first()
     elif rdid:
         q = await db.execute(
             select(InferenceResult).where(InferenceResult.rdid == rdid).order_by(InferenceResult.created_at.desc())
         )
-        job = q.scalar_one_or_none()
+        job = q.scalars().first()
 
     if not job:
         raise HTTPException(status_code=404, detail="inference result not found")
